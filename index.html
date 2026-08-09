@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tikehau Capital — AI Quiz</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23C6A962'/><text x='16' y='23' text-anchor='middle' font-size='20' font-weight='800' fill='%230B1D3A' font-family='Georgia'>T</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:linear-gradient(170deg,#0B1D3A,#06101f);color:#F5F3EF;min-height:100vh;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;outline:none}input{font-family:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid #C6A962;border-top-color:transparent;animation:spin 1s linear infinite;margin:0 auto}
+.fi{animation:fadeIn .35s ease both}.d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}.d4{animation-delay:.2s}.d5{animation-delay:.3s}
+</style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+// ╔══════════════════════════════════════════════════════╗
+// ║  PASTE YOUR FIREBASE CONFIG BELOW                    ║
+// ║  console.firebase.google.com → Project Settings      ║
+// ╚══════════════════════════════════════════════════════╝
+firebase.initializeApp({
+  apiKey: "AIzaSyDPv3-JJVRZn4J6W7NTDeDC2QCJQmFTmj8",
+  authDomain: "tikehau-quiz.firebaseapp.com",
+  databaseURL: "https://tikehau-quiz-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tikehau-quiz",
+  storageBucket: "tikehau-quiz.firebasestorage.app",
+  messagingSenderId: "1011557105281",
+  appId: "1:1011557105281:web:832380462ecae06792d780"
+});
+const db = firebase.database();
+</script>
+<!-- React -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ██ KILL SWITCH ██
+const DISABLED = false;
+
+const TK={navy:"#0B1D3A",gold:"#C6A962",goldDark:"#A88B3D",goldLight:"#D4BC7C",white:"#FFF",offWhite:"#F5F3EF",grey:"#8A92A1",greyL:"#C8CCD4",ok:"#34D399",okBg:"rgba(52,211,153,.12)",bad:"#F87171",badBg:"rgba(248,113,113,.12)"};
+const AVATARS=[{emoji:"🦁",bg:"#F59E0B"},{emoji:"🐺",bg:"#6366F1"},{emoji:"🦅",bg:"#EF4444"},{emoji:"🐬",bg:"#06B6D4"},{emoji:"🦊",bg:"#F97316"},{emoji:"🐻",bg:"#8B5CF6"},{emoji:"🦈",bg:"#3B82F6"},{emoji:"🐆",bg:"#10B981"},{emoji:"🦉",bg:"#A855F7"},{emoji:"🐲",bg:"#EC4899"},{emoji:"🐯",bg:"#14B8A6"},{emoji:"🦜",bg:"#F43F5E"}];
+const SRCS={speech:{icon:"🎤",color:"#EF4444",label:"Speech"},policy:{icon:"📜",color:"#8B5CF6",label:"Policy"},bcg:{icon:"📊",color:"#10B981",label:"BCG Report"},bain:{icon:"📈",color:"#3B82F6",label:"Bain Report"},tikehau:{icon:"🔷",color:"#C6A962",label:"Tikehau Internal"}};
+
+const Q=[
+{q:'Who called AI development "a symphony" requiring global cooperation?',o:["Sam Altman (OpenAI)","Dario Amodei (Anthropic)","Xi Jinping","António Guterres (UN)"],c:2,ex:"Xi Jinping at WAIC Shanghai, July 2026. Nearly indistinguishable from Silicon Valley keynotes.",cat:"Geopolitics",s:"Xinhua — Xi Jinping's keynote at 2026 WAIC",sd:"July 17, 2026",st:"speech",xt:'"AI development should not be a solo performance by a single country, but a symphony of international cooperation."'},
+{q:"In 2026, who proposed taxing AI companies to fund redistribution?",o:["Only Dario Amodei","Amodei and Altman","Amodei, Altman, and Trump","Amodei, Altman, Trump, and Sanders"],c:3,ex:"All four converged independently.",cat:"Geopolitics",s:'Amodei "Policy on the AI Exponential" · OpenAI · White House · Sanders',sd:"Apr–Jul 2026",st:"policy",xt:'Amodei: 3% token tax · Altman: 5% equity · Trump: "giving back" · Sanders: 50% stock tax'},
+{q:'Who urged the world to "forestall loss of control" over AI?',o:["Dario Amodei","Xi Jinping","Ursula von der Leyen","Sam Altman"],c:1,ex:"Xi Jinping at WAIC 2026 — nearly identical to Anthropic's Responsible Scaling Policy.",cat:"Geopolitics",s:"Xinhua — Xi Jinping's keynote at 2026 WAIC",sd:"July 17, 2026",st:"speech",xt:'"We must constantly refine measures to forestall loss of control."'},
+{q:"Who proposed giving Americans a direct ownership stake in AI companies?",o:["Bernie Sanders","Sam Altman","Donald Trump","All three, independently"],c:3,ex:"Sanders (50% stock tax), Altman (5% equity fund), Trump — all in 2026.",cat:"Geopolitics",s:"Axios · White House · Sanders Senate statement",sd:"Apr–Jul 2026",st:"policy",xt:'"Give every American a direct stake in AI-driven growth through a nationally managed fund."'},
+{q:"What made the 2026 Shanghai AI conference unique?",o:["Largest by attendance","First head-of-state keynote + new intl org","First open-source AI treaty","First US-China AI declaration"],c:1,ex:"Xi's first in-person WAIC + launch of WAICO.",cat:"Geopolitics",s:"Matt Sheehan · Xinhua",sd:"July 17–20, 2026",st:"speech",xt:"First head of state at a major AI conference. WAICO launched with UN Secretary-General present."},
+{q:'What is a "token tax"?',o:["Tax on crypto tokens","3% levy on AI revenue per output","Flat fee per API call","Tax on training compute"],c:1,ex:"Dario Amodei's proposal: 3% each time an LLM produces output.",cat:"Geopolitics",s:'Amodei — "Policy on the AI Exponential"',sd:"June 2026",st:"policy",xt:'"A 3% levy each time a language model produces output. This works against my own financial interest."'},
+{q:"If one major AI company gave 5% equity to the public, value per household?",o:["~$30","~$320","~$3,200","~$32,000"],c:1,ex:"OpenAI ~$850B × 5% ÷ 130M households ≈ $320.",cat:"Geopolitics",s:"Axios — Altman proposes 5% OpenAI equity to sovereign fund",sd:"July 2026",st:"policy",xt:"$850B × 5% ÷ 130M households ≈ $320. If all AI giants follow: significantly more."},
+{q:"Most surprising political consensus of 2026?",o:["AI safety regulation","AI wealth must flow to the public","Open source AI","AI will replace most jobs"],c:1,ex:"A Republican president, a democratic socialist, and two AI CEOs agree on redistribution.",cat:"Geopolitics",s:"Synthesis — Q2–Q3 2026 proposals",sd:"2026",st:"policy",xt:"When capital can think, the old left-right divide on wealth stops making sense."},
+{q:"What share of frontline employees now use AI regularly?",o:["42%","56%","74%","88%"],c:2,ex:"74% — up 23pp from 2025.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=11,749)',sd:"June 2026",st:"bcg",xt:"Frontline: 20% (2023) → 46% (2024) → 51% (2025) → 74% (2026). Leaders: 93%."},
+{q:"Where does France rank on frontline AI adoption among 14 markets?",o:["Top 3","Middle of the pack","Bottom 3","Dead last"],c:2,ex:"France at 62%, bottom 3 with Italy and US. India leads at 95%.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=4,040 frontline)',sd:"June 2026",st:"bcg",xt:"🇮🇳 95% · 🇦🇪 93% · 🇦🇺 86% · … · 🇺🇸 62% · 🇫🇷 62% · 🇮🇹 62%"},
+{q:"AI users save 1+ day/week. What do orgs tell them to do with it?",o:["Reinvest strategically","Take on more clients","Very little — no guidance","Upskill"],c:2,ex:"66% get limited or no guidance on time saved.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=8,989)',sd:"June 2026",st:"bcg",xt:"42% save ≥1 day/week. But 66% get no guidance. Time saved ≠ value captured."},
+{q:"88% need AI upskilling. How many feel trained?",o:["67%","52%","36%","18%"],c:2,ex:"Only 36% — unchanged from 2025.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=11,749)',sd:"June 2026",st:"bcg",xt:"88% need upskilling. Only 36% feel trained. Both unchanged YoY."},
+{q:"What produces more measurable AI impact?",o:["Strong tools, no strategy","Clear strategy, limited tools","Equal","Neither — it's talent"],c:1,ex:"Strategy + limited tools → 80%. Tools + no strategy → 60%.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=9,923)',sd:"June 2026",st:"bcg",xt:"Strong tools alone: 60%. Clear strategy alone: 80%. Strategy premium: +25pp."},
+{q:"What % of CEOs say AI transformation fully meets ambitions?",o:["52%","36%","18%","5%"],c:2,ex:"Only 18%. 82% at best partially realized.",cat:"Market",s:'Bain — "Proprietary Intelligence: How to Win with AI"',sd:"2026",st:"bain",xt:"82% at best partially realized. ~85% not executing well."},
+{q:"#1 barrier CEOs cite for AI transformation stalling?",o:["Technology","Lack of in-house expertise","Regulation","Budget"],c:1,ex:"43% cite expertise, 41% stuck on pilots, 39% data not ready.",cat:"Market",s:'Bain — "Proprietary Intelligence: How to Win with AI"',sd:"2026",st:"bain",xt:"#1 Expertise: 43% · #2 Pilots: 41% · #3 Data: 39%"},
+{q:"What makes an AI advantage no competitor can copy?",o:["Budget, talent, speed","Unique data, workflows, learning loops","Cloud, APIs, dashboards","LLMs, agents, copilots"],c:1,ex:'Bain\'s "proprietary intelligence" = compounding moat.',cat:"Market",s:'Bain — "Proprietary Intelligence: How to Win with AI"',sd:"2026",st:"bain",xt:"(1) Unique data (2) Encoded workflows (3) Learning architecture → compounding flywheel."},
+{q:"What % believe agents could do half their job in 3 years?",o:["25%","42%","61%","78%"],c:2,ex:"61% overall. But 50% lack governance for human-AI teams.",cat:"Market",s:'BCG — "AI at Work" (4th ed., n=9,923)',sd:"June 2026",st:"bcg",xt:"61% see agents doing ≥50% of their job. Integration 2× since 2025. Governance lags."},
+{q:"The real bottleneck holding back AI value in 2026?",o:["Model capability","Cost","Organization & management","Regulation"],c:2,ex:"BCG and Bain both conclude: the bottleneck is organizational.",cat:"Market",s:'BCG + Bain (2026)',sd:"2026",st:"bcg",xt:'BCG: "Organizational and managerial." Bain: "Capability, not technology."'},
+{q:"What is Retina at Tikehau Capital?",o:["Biometric login","AI agent searching internal documents","Portfolio-management funds","External search engine"],c:1,ex:"Searches investment memos, deal summaries, legal docs with source traceability.",cat:"Tikehau",s:"Lagoon AI Training Module (v5.6)",sd:"2026",st:"tikehau",xt:"Retina searches permissioned documents with source-file traceability and user-level access rights."},
+{q:"What orchestrates Tikehau's AI agents?",o:["Social-media tool","n8n — the agentic AI platform","Valuation database","Biometric authentication"],c:1,ex:"n8n orchestrates agents and workflows. Retina connects through it.",cat:"Tikehau",s:"Lagoon AI Training Module (v5.6)",sd:"2026",st:"tikehau",xt:"n8n enables orchestration of AI agents. Retina connects with Lagoon to access tools securely."},
+{q:"Which protocol covers BOTH hallucination risks?",o:["Trust confident answers","Verify facts AND validate AI understanding","Only verify figures","AI self-check"],c:1,ex:"Invention = fabricates data. Appreciation = misunderstands request. Both need verification.",cat:"Tikehau",s:"Lagoon AI Training — Hallucination Protocols",sd:"2026",st:"tikehau",xt:"Invention = fabricates facts. Appreciation = misunderstands question. Both must be verified."},
+{q:"Key difference: AI Champion vs AI Coordinator?",o:["Interchangeable","Champion = fluency; Coordinator = governance","Coordinator only Lagoon-wide","Champion disappears after scoping"],c:1,ex:"Champion = understanding + ambassador. Coordinator = dependencies + tracking.",cat:"Tikehau",s:"AI Governance Framework",sd:"2026",st:"tikehau",xt:"Champion: fluency, assessment, knowledge. Coordinator: dependencies, roundtable, value framework."},
+{q:"New AI idea in your team — how to route it?",o:["Auto Lagoon-wide","Champion scopes (BU/group/Lagoon)","Implement directly","External consultants"],c:1,ex:"Champion scopes → Coordinator governs.",cat:"Tikehau",s:"AI Governance Framework — Project Routing",sd:"2026",st:"tikehau",xt:"Three scopes: BU · Group-wide · Lagoon platform. Champion scopes → Coordinator governs."},
+{q:"Tikehau's AI productivity target by end 2027?",o:["Save €10M OpEx","Equivalent of 100 FTEs","Replace 50% manual reporting","Reduce headcount 15%"],c:1,ex:"100 FTE-equivalent — freeing capacity, not cutting headcount.",cat:"Tikehau",s:"AI Steering Committee — Strategic Objectives 2025–2027",sd:"2025–2027",st:"tikehau",xt:"Target: 100 FTEs in productivity gains by end 2027. Higher-value work, not headcount reduction."},
+];
+
+const TSEC=20,TLONG=30,MAXP=1000;
+function tFor(i){return i===15||i===21?TLONG:TSEC}
+function genCode(){return String(1000+Math.floor(Math.random()*9000))}
+function genId(){return Math.random().toString(36).slice(2,8)}
+
+// ── Firebase helpers ──
+function fbSet(path,val){return db.ref(path).set(val)}
+function fbGet(path){return db.ref(path).once("value").then(s=>s.val())}
+function fbOn(path,cb){db.ref(path).on("value",s=>cb(s.val()));return()=>db.ref(path).off()}
+function fbDel(path){return db.ref(path).remove()}
+
+// ── UI ──
+function Logo({size=28}){return <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:size,height:size,borderRadius:4,background:`linear-gradient(135deg,${TK.gold},${TK.goldDark})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.5,fontWeight:800,color:TK.navy,fontFamily:"Georgia,serif"}}>T</div><span style={{fontSize:size*.45,fontWeight:600,letterSpacing:".12em",textTransform:"uppercase",color:TK.gold}}>Tikehau Capital</span></div>}
+function Av({i,size=48}){const a=AVATARS[i]||AVATARS[0];return <div style={{width:size,height:size,borderRadius:size*.3,background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.5,boxShadow:`0 2px 12px ${a.bg}44`}}>{a.emoji}</div>}
+function Btn({children,onClick,disabled,outline}){return <button onClick={onClick} disabled={disabled} style={{padding:"14px 44px",borderRadius:10,fontWeight:700,fontSize:16,border:outline?`1.5px solid ${TK.gold}`:"none",cursor:disabled?"default":"pointer",background:outline?"transparent":`linear-gradient(135deg,${TK.gold},${TK.goldDark})`,color:outline?TK.gold:TK.navy,opacity:disabled?.4:1,boxShadow:outline?"none":"0 4px 20px rgba(198,169,98,.25)"}}>{children}</button>}
+function Wrap({children,w=640}){return <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}}><div style={{width:"100%",maxWidth:w}}>{children}</div></div>}
+function TBar({tl,mx}){const p=(tl/mx)*100,cl=tl<=5?TK.bad:tl<=10?TK.goldLight:TK.gold;return <div style={{width:"100%",height:8,borderRadius:4,background:"rgba(255,255,255,.08)",overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",borderRadius:4,background:cl,transition:"width 1s linear"}}/></div>}
+function SCard({q}){const s=SRCS[q.st]||SRCS.bcg;return <div className="fi d5" style={{marginTop:16,borderRadius:14,overflow:"hidden",border:`1px solid ${s.color}25`}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 18px",background:`${s.color}12`}}><span style={{fontSize:18}}>{s.icon}</span><div style={{flex:1}}><div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:s.color}}>{s.label}</div><div style={{fontSize:12,color:TK.grey,marginTop:1}}>{q.sd}</div></div></div><div style={{padding:"10px 18px",borderBottom:`1px solid ${s.color}12`}}><div style={{fontSize:13,color:TK.greyL,lineHeight:1.5,fontStyle:"italic"}}>{q.s}</div></div><div style={{padding:"14px 18px",background:"rgba(0,0,0,.15)"}}><div style={{fontSize:15,color:TK.white,lineHeight:1.6,fontWeight:500}}>{q.xt}</div></div></div>}
+function LBoard({players,showD=true}){
+  const sorted=Object.entries(players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,15);
+  const m=["🥇","🥈","🥉"];
+  return <div style={{display:"flex",flexDirection:"column",gap:8}}>{sorted.map((p,i)=>{const av=AVATARS[p.avatar]||AVATARS[0];return <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderRadius:12,background:i===0?"rgba(198,169,98,.1)":"rgba(255,255,255,.02)",border:`1px solid ${i===0?"rgba(198,169,98,.2)":"rgba(255,255,255,.04)"}`}}><span style={{width:28,textAlign:"center",fontSize:i<3?20:14,fontWeight:700,color:TK.grey}}>{i<3?m[i]:i+1}</span><div style={{width:36,height:36,borderRadius:10,background:av.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{av.emoji}</div><span style={{flex:1,fontSize:15,fontWeight:500,color:TK.white}}>{p.name}</span>{showD&&p.delta>0&&<span style={{fontSize:13,fontWeight:600,color:TK.ok,marginRight:8}}>+{p.delta}</span>}<span style={{fontSize:18,fontWeight:700,color:TK.gold,minWidth:60,textAlign:"right"}}>{p.score||0}</span></div>})}</div>
+}
+
+function App(){
+  if(DISABLED)return <Wrap><div style={{textAlign:"center"}}><Logo size={36}/><h1 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:32}}>Coming Soon</h1><p style={{fontSize:15,color:TK.grey,marginTop:12}}>The quiz will be activated during the seminar.</p></div></Wrap>;
+
+  const [role,setRole]=useState(null);
+  const [code,setCode]=useState("");
+  const [pid]=useState(genId);
+  const [name,setName]=useState("");
+  const [avIdx,setAvIdx]=useState(0);
+  const [phase,setPhase]=useState("choose");
+  const [gState,setGState]=useState(null);
+  const [players,setPlayers]=useState({});
+  const [answers,setAnswers]=useState({});
+  const [myPick,setMyPick]=useState(null);
+  const [sent,setSent]=useState(false);
+  const [tl,setTl]=useState(TSEC);
+  const [joinCode,setJoinCode]=useState("");
+  const [err,setErr]=useState("");
+  const [qi,setQi]=useState(0);
+  const tRef=useRef(null);
+  const unsubs=useRef([]);
+  const qStart=useRef(0);
+  const prevP=useRef(null);
+
+  const stopT=()=>{if(tRef.current){clearInterval(tRef.current);tRef.current=null}};
+  const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
+  useEffect(()=>()=>cleanup(),[]);
+
+  const question=Q[qi];
+  const nPlayers=Object.keys(players).length;
+  const nAnswers=Object.keys(answers).length;
+  const dist=[0,0,0,0];Object.values(answers).forEach(a=>{if(a.pick>=0&&a.pick<4)dist[a.pick]++});
+
+  // Host
+  const hostCreate=async()=>{
+    const c=genCode();
+    await fbSet(`quiz/${c}/state`,{phase:"lobby",currentQ:0,startTime:0});
+    await fbSet(`quiz/${c}/players`,{});
+    setCode(c);setRole("host");setPhase("lobby");
+    unsubs.current.push(fbOn(`quiz/${c}/players`,p=>setPlayers(p||{})));
+  };
+  const hostStartQ=async(q)=>{
+    const now=Date.now();qStart.current=now;
+    setQi(q);setAnswers({});setPhase("question");setTl(tFor(q));
+    await fbSet(`quiz/${code}/state`,{phase:"question",currentQ:q,startTime:now});
+    await fbSet(`quiz/${code}/ans_${q}`,{});
+    stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
+    // listen answers
+    const unsub=fbOn(`quiz/${code}/ans_${q}`,a=>setAnswers(a||{}));
+    unsubs.current.push(unsub);
+  };
+  const hostReveal=async()=>{
+    stopT();
+    const a=await fbGet(`quiz/${code}/ans_${qi}`)||{};setAnswers(a);
+    const p=await fbGet(`quiz/${code}/players`)||{};
+    const mx=tFor(qi)*1000;
+    Object.entries(a).forEach(([id,ans])=>{
+      if(p[id]&&ans.pick===Q[qi].c){const b=Math.max(0,Math.round(MAXP*(1-ans.timeMs/mx)));p[id].delta=b;p[id].score=(p[id].score||0)+b}
+      else if(p[id])p[id].delta=0;
+    });
+    Object.keys(p).forEach(id=>{if(!a[id]&&p[id])p[id].delta=0});
+    await fbSet(`quiz/${code}/players`,p);
+    await fbSet(`quiz/${code}/state`,{phase:"reveal",currentQ:qi,startTime:qStart.current});
+    setPlayers(p);setPhase("reveal");
+  };
+  const hostLB=async()=>{await fbSet(`quiz/${code}/state`,{phase:"leaderboard",currentQ:qi});setPhase("leaderboard")};
+  const hostNext=async()=>{
+    if(qi+1>=Q.length){await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});setPhase("final")}
+    else hostStartQ(qi+1);
+  };
+
+  // Player
+  const playerJoin=async()=>{
+    if(!joinCode||joinCode.length!==4){setErr("Enter a 4-digit code");return}
+    if(!name.trim()){setErr("Enter your name");return}
+    const st=await fbGet(`quiz/${joinCode}/state`);
+    if(!st){setErr("Session not found");return}
+    const p=await fbGet(`quiz/${joinCode}/players`)||{};
+    if(Object.values(p).some(x=>x.name?.toLowerCase()===name.trim().toLowerCase())){setErr("Name taken");return}
+    p[pid]={name:name.trim(),avatar:avIdx,score:0,delta:0};
+    await fbSet(`quiz/${joinCode}/players`,p);
+    setCode(joinCode);setRole("player");setPlayers(p);setPhase("lobby");
+    unsubs.current.push(fbOn(`quiz/${joinCode}/state`,s=>{if(s)setGState(s)}));
+    unsubs.current.push(fbOn(`quiz/${joinCode}/players`,pl=>{if(pl)setPlayers(pl)}));
+  };
+  const playerPick=async(pick)=>{
+    if(sent)return;setMyPick(pick);setSent(true);
+    const elapsed=Date.now()-(gState?.startTime||0);
+    await fbSet(`quiz/${code}/ans_${gState?.currentQ}/${pid}`,{pick,timeMs:elapsed});
+  };
+
+  // Player state sync
+  useEffect(()=>{
+    if(role!=="player"||!gState)return;
+    const gp=gState.phase;
+    if(gp!==prevP.current){
+      prevP.current=gp;
+      if(gp==="question"){
+        setQi(gState.currentQ);setMyPick(null);setSent(false);setPhase("question");
+        qStart.current=gState.startTime;setTl(tFor(gState.currentQ));
+        stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
+      }
+      if(gp==="reveal"){stopT();setQi(gState.currentQ);setPhase("reveal")}
+      if(gp==="leaderboard")setPhase("leaderboard");
+      if(gp==="final")setPhase("final");
+    }
+  },[gState,role]);
+
+  const L=["A","B","C","D"],colors=[TK.bad,"#3B82F6",TK.gold,TK.ok];
+
+  // ═══ SCREENS ═══
+  if(phase==="choose")return(<Wrap w={480}><div style={{textAlign:"center"}}><Logo size={36}/><div style={{fontSize:12,fontWeight:600,letterSpacing:".15em",textTransform:"uppercase",color:TK.gold,marginTop:48,marginBottom:12}}>Top Management Seminar</div><h1 style={{fontSize:38,fontWeight:300,lineHeight:1.2,fontFamily:"Georgia,serif"}}>AI & The Changing World</h1><p style={{fontSize:15,color:TK.grey,marginTop:12}}>24 questions · Geopolitics · Market · Tikehau</p><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:44,maxWidth:320,margin:"44px auto 0"}}><Btn onClick={hostCreate}>Host a Session</Btn><Btn outline onClick={()=>{setRole("player");setPhase("join")}}>Join as Player</Btn></div></div></Wrap>);
+
+  if(phase==="join")return(<Wrap w={440}><div style={{textAlign:"center"}}><Logo size={28}/><h2 style={{fontSize:24,fontWeight:300,fontFamily:"Georgia,serif",marginTop:36}}>Join the Quiz</h2><div style={{marginTop:28,display:"flex",flexDirection:"column",gap:16}}><div><label style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".08em"}}>Session Code</label><input value={joinCode} onChange={e=>{setJoinCode(e.target.value.replace(/\D/g,"").slice(0,4));setErr("")}} placeholder="4-digit code" maxLength={4} style={{width:"100%",marginTop:6,padding:"14px 16px",borderRadius:10,fontSize:24,fontWeight:700,textAlign:"center",letterSpacing:".3em",background:"rgba(255,255,255,.05)",border:"1.5px solid rgba(255,255,255,.1)",color:TK.white,outline:"none",boxSizing:"border-box"}}/></div><div><label style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".08em"}}>Your Name</label><input value={name} onChange={e=>{setName(e.target.value.slice(0,20));setErr("")}} placeholder="Enter your name" maxLength={20} style={{width:"100%",marginTop:6,padding:"12px 16px",borderRadius:10,fontSize:16,background:"rgba(255,255,255,.05)",border:"1.5px solid rgba(255,255,255,.1)",color:TK.white,outline:"none",boxSizing:"border-box"}}/></div><div><label style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:10}}>Pick Your Avatar</label><div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8}}>{AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:48,height:48,borderRadius:12,border:i===avIdx?`2px solid ${TK.gold}`:"2px solid transparent",background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:i===avIdx?`0 0 16px ${TK.gold}44`:"none"}}>{a.emoji}</button>)}</div></div></div>{err&&<p style={{color:TK.bad,fontSize:13,marginTop:12}}>{err}</p>}<div style={{marginTop:28}}><Btn onClick={playerJoin} disabled={!joinCode||joinCode.length<4||!name.trim()}>Join</Btn></div><button onClick={()=>{setPhase("choose");setRole(null);setErr("")}} style={{marginTop:16,background:"none",border:"none",color:TK.grey,fontSize:13}}>← Back</button></div></Wrap>);
+
+  if(phase==="lobby"&&role==="host")return(<Wrap w={600}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{marginTop:36,padding:"32px 24px",borderRadius:20,background:"rgba(198,169,98,.06)",border:"1px solid rgba(198,169,98,.15)"}}><div style={{fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:TK.grey}}>Session Code</div><div style={{fontSize:64,fontWeight:800,letterSpacing:".25em",color:TK.gold,fontVariantNumeric:"tabular-nums",marginTop:8}}>{code}</div><p style={{fontSize:14,color:TK.grey,marginTop:8}}>Open this page and enter the code to join</p></div><div style={{marginTop:28}}><div style={{fontSize:13,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>{nPlayers} player{nPlayers!==1?"s":""}</div>{nPlayers===0?<p style={{color:TK.grey,fontSize:14,fontStyle:"italic"}}>Waiting for players…</p>:<div style={{display:"flex",flexWrap:"wrap",gap:12,justifyContent:"center"}}>{Object.values(players).map((p,i)=><div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"12px 16px",borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",minWidth:80}}><Av i={p.avatar} size={40}/><span style={{fontSize:13,fontWeight:500,color:TK.white}}>{p.name}</span></div>)}</div>}</div><div style={{marginTop:36}}><Btn onClick={()=>hostStartQ(0)} disabled={nPlayers===0}>Start Quiz →</Btn></div></div></Wrap>);
+
+  if(phase==="lobby"&&role==="player")return(<Wrap w={440}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{marginTop:40}}><Av i={avIdx} size={64}/></div><h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16}}>{name}</h2><p style={{color:TK.grey,fontSize:14,marginTop:4}}>Session <span style={{color:TK.gold,fontWeight:700}}>{code}</span></p><div style={{marginTop:32,padding:"20px",borderRadius:14,background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)"}}><div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>{Object.values(players).map((p,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,background:"rgba(255,255,255,.04)"}}><span style={{fontSize:18}}>{AVATARS[p.avatar]?.emoji}</span><span style={{fontSize:13,color:TK.greyL}}>{p.name}</span></div>)}</div></div><div style={{marginTop:36}}><div className="spinner"/></div><p style={{color:TK.grey,fontSize:14,marginTop:12}}>Waiting for the host…</p></div></Wrap>);
+
+  if(phase==="question"&&role==="host")return(<Wrap w={720}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.gold}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span><span style={{fontSize:14,color:TK.grey}}>👥 {nAnswers}/{nPlayers}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(qi)}/><div style={{padding:"28px",borderRadius:16,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",marginTop:20}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}15`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.white,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
+
+  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={480}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:12,color:TK.grey}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:22,fontWeight:700,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"20px",borderRadius:14,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",marginTop:16}}><h2 style={{fontSize:20,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{pq.q}</h2></div><div style={{display:"flex",flexDirection:"column",gap:10,marginTop:14}}>{pq.o.map((o,i)=>{const pk=myPick===i;return <button key={i} onClick={()=>playerPick(i)} disabled={sent} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"16px 18px",borderRadius:14,background:pk?`${colors[i]}25`:`${colors[i]}10`,border:`2px solid ${pk?colors[i]:colors[i]+"33"}`,color:TK.white,cursor:sent?"default":"pointer",fontSize:15,textAlign:"left",outline:"none",boxShadow:pk?`0 0 20px ${colors[i]}33`:"none"}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{L[i]}</span><span style={{flex:1,lineHeight:1.4}}>{o}</span></button>})}</div>{sent&&<div style={{textAlign:"center",marginTop:20,padding:"16px",borderRadius:12,background:"rgba(198,169,98,.06)",border:"1px solid rgba(198,169,98,.12)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in</p></div>}</Wrap>)}
+
+  if(phase==="reveal"&&role==="host")return(<Wrap w={720}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.gold}}>Reveal</span></div><div style={{padding:"24px",borderRadius:16,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)"}}><h2 style={{fontSize:22,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",gap:8,marginTop:16}}>{question.o.map((o,i)=>{const isC=i===question.c;const barW=nAnswers>0?Math.max(4,(dist[i]/nAnswers)*100):0;return <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderRadius:12,background:isC?TK.okBg:"rgba(255,255,255,.04)",border:`1.5px solid ${isC?TK.ok:"rgba(255,255,255,.1)"}`,color:isC?TK.ok:TK.offWhite,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",left:0,top:0,bottom:0,width:`${barW}%`,background:isC?"rgba(52,211,153,.08)":"rgba(255,255,255,.03)",transition:"width .6s"}}/><span style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",background:isC?TK.ok:"rgba(255,255,255,.08)",color:isC?TK.navy:TK.greyL,fontWeight:700,fontSize:13,position:"relative"}}>{L[i]}</span><span style={{flex:1,lineHeight:1.4,position:"relative"}}>{o}</span>{dist[i]>0&&<span style={{fontSize:13,fontWeight:600,color:TK.grey,position:"relative"}}>{dist[i]}</span>}</div>})}</div><div className="fi d3" style={{marginTop:16,padding:"14px 18px",borderRadius:12,background:"rgba(198,169,98,.06)",border:"1px solid rgba(198,169,98,.15)"}}><div style={{fontSize:14,lineHeight:1.6,color:TK.greyL}}>{question.ex}</div></div><SCard q={question}/><div style={{textAlign:"center",marginTop:20}}><Btn onClick={hostLB}>Show Leaderboard →</Btn></div></Wrap>);
+
+  if(phase==="reveal"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi],ok=myPick===pq.c,me=players[pid];return(<Wrap w={440}><div style={{textAlign:"center",marginTop:20}}><div style={{fontSize:64,marginBottom:12}}>{ok?"🎉":myPick===null?"⏱":"😬"}</div><h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:ok?TK.ok:(myPick===null?TK.grey:TK.bad)}}>{ok?"Correct!":myPick===null?"Time's up":"Not quite"}</h2>{ok&&me&&<p style={{fontSize:18,fontWeight:700,color:TK.gold,marginTop:8}}>+{me.delta} pts</p>}<div style={{textAlign:"left",marginTop:16}}><div style={{padding:"14px 18px",borderRadius:12,background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)"}}><div style={{fontSize:14,color:TK.ok,fontWeight:600}}>Answer: {pq.o[pq.c]}</div><p style={{fontSize:13,color:TK.grey,marginTop:8,lineHeight:1.5}}>{pq.ex}</p></div><SCard q={pq}/></div><div style={{marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Waiting for leaderboard…</p></div></div></Wrap>)}
+
+  if(phase==="leaderboard")return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={24}/><h2 style={{fontSize:24,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24}}>Leaderboard</h2><p style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length}</p></div><div style={{marginTop:20}}><LBoard players={players}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
+
+  if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(198,169,98,.1)",border:"1px solid rgba(198,169,98,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.gold}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
+
+  return <Wrap><p style={{color:TK.grey,textAlign:"center"}}>Loading…</p></Wrap>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
