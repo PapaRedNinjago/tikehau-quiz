@@ -1,8 +1,8 @@
-# Tikehau Capital — AI Quiz
+#  — AI Quiz
 
 Interactive multiplayer quiz for the Top Management Seminar: **AI & The Changing World**.
 
-24 questions across 3 sections: Geopolitics, Market Knowledge, and Tikehau Internal.
+24 questions across 3 sections: Geopolitics, Market Knowledge, and  Internal knowledge.
 
 ## How it works
 
