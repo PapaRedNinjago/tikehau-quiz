@@ -60,7 +60,7 @@ const {useState,useEffect,useCallback,useRef}=React;
 const DISABLED = false;
 
 const TK={navy:"#1B1464",navyD:"#110E45",orange:"#FF6633",orangeD:"#E55A2B",orangeL:"#FF8855",cream:"#F0E6D3",white:"#FFFFFF",offWhite:"#F5F0E8",grey:"#8A8BA1",greyL:"#C8C5D4",ok:"#34D399",okBg:"rgba(52,211,153,.12)",bad:"#F87171",badBg:"rgba(248,113,113,.12)"};
-const AVATARS=[{emoji:"🦁",bg:"#F59E0B"},{emoji:"🐺",bg:"#6366F1"},{emoji:"🦅",bg:"#EF4444"},{emoji:"🐬",bg:"#06B6D4"},{emoji:"🦊",bg:"#F97316"},{emoji:"🐻",bg:"#8B5CF6"},{emoji:"🦈",bg:"#3B82F6"},{emoji:"🐆",bg:"#10B981"},{emoji:"🦉",bg:"#A855F7"},{emoji:"🐲",bg:"#EC4899"},{emoji:"🐯",bg:"#14B8A6"},{emoji:"🦜",bg:"#F43F5E"}];
+const AVATARS=[{emoji:"🦁",bg:"#F59E0B"},{emoji:"🐺",bg:"#6366F1"},{emoji:"🦅",bg:"#EF4444"},{emoji:"🐬",bg:"#06B6D4"},{emoji:"🦊",bg:"#F97316"},{emoji:"🐻",bg:"#8B5CF6"},{emoji:"🦈",bg:"#3B82F6"},{emoji:"🐆",bg:"#10B981"},{emoji:"🦉",bg:"#A855F7"},{emoji:"🐲",bg:"#EC4899"},{emoji:"🐯",bg:"#14B8A6"},{emoji:"🦜",bg:"#F43F5E"},{emoji:"🐘",bg:"#94A3B8"},{emoji:"🦒",bg:"#CA8A04"},{emoji:"🐧",bg:"#0EA5E9"},{emoji:"🐢",bg:"#65A30D"},{emoji:"🐙",bg:"#DB2777"},{emoji:"🐨",bg:"#7C3AED"}];
 const SRCS={speech:{icon:"🎤",color:"#EF4444",label:"Speech"},policy:{icon:"📜",color:"#8B5CF6",label:"Policy"},bcg:{icon:"📊",color:"#10B981",label:"BCG Report"},bain:{icon:"📈",color:"#3B82F6",label:"Bain Report"},tikehau:{icon:"🔷",color:"#FF6633",label:"Tikehau Internal"}};
 
 const QIMG=[
@@ -474,7 +474,7 @@ function App(){
         <div>
           <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:8}}>Pick Your Avatar</label>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6}}>
-            {AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:52,height:52,borderRadius:12,border:i===avIdx?`2px solid ${TK.orange}`:"2px solid transparent",background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,boxShadow:i===avIdx?`0 0 16px ${TK.orange}44`:"none"}}>{a.emoji}</button>)}
+            {AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:56,height:56,borderRadius:12,border:i===avIdx?`2px solid ${TK.orange}`:"2px solid transparent",background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,lineHeight:1,boxShadow:i===avIdx?`0 0 16px ${TK.orange}44`:"none"}}>{a.emoji}</button>)}
           </div>
         </div>
       </div>
