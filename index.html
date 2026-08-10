@@ -252,7 +252,7 @@ function ReviewMode(){
         <TKOLogo scale={.8}/>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>{q.cat}</span>
-          <span style={{fontSize:14,color:TK.grey}}>Review Mode \u00b7 {rqi+1}/{Q.length}</span>
+          <span style={{fontSize:14,color:TK.grey}}>Review Mode · {rqi+1}/{Q.length}</span>
         </div>
       </div>
 
@@ -275,7 +275,7 @@ function ReviewMode(){
                 }}>
                   <span style={{width:30,height:30,borderRadius:8,background:SHAPES[i].color,color:"#fff",fontWeight:800,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{L[i]}</span>
                   <span style={{fontSize:14,color:TK.navy,lineHeight:1.4,fontWeight:showAnswer&&isC?700:400}}>{o}</span>
-                  {showAnswer&&isC&&<span style={{marginLeft:"auto",color:TK.ok,fontWeight:700,fontSize:18}}>\u2713</span>}
+                  {showAnswer&&isC&&<span style={{marginLeft:"auto",color:TK.ok,fontWeight:700,fontSize:18}}>✓</span>}
                 </div>
               })}
             </div>
@@ -286,12 +286,12 @@ function ReviewMode(){
         <div style={{flex:"1 1 42%",minWidth:0}}>
           {!showAnswer
             ?<div style={{background:"#fff",borderRadius:16,padding:32,border:"1px solid rgba(27,20,100,.08)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:300,textAlign:"center"}}>
-              <div style={{fontSize:48,marginBottom:16,opacity:.3}}>\ud83d\udd12</div>
-              <p style={{fontSize:15,color:TK.grey}}>Press \u201cShow Answer\u201d or spacebar</p>
+              <div style={{fontSize:48,marginBottom:16,opacity:.3}}>🔒</div>
+              <p style={{fontSize:15,color:TK.grey}}>Press “Show Answer” or spacebar</p>
             </div>
             :<div className="slide-r sr1">
               <div style={{background:"#fff",borderRadius:16,padding:24,border:"1px solid rgba(27,20,100,.08)"}}>
-                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:TK.orange,marginBottom:10}}>\u2713 Correct answer</div>
+                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:TK.orange,marginBottom:10}}>✓ Correct answer</div>
                 <div style={{fontSize:18,fontWeight:700,lineHeight:1.4,color:TK.navy,marginBottom:14}}>{q.o[q.c]}</div>
                 <div style={{fontSize:14,lineHeight:1.7,color:"#5A596E"}}>{q.ex}</div>
               </div>
@@ -303,12 +303,12 @@ function ReviewMode(){
 
       {/* Navigation */}
       <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginTop:24}}>
-        <button onClick={goPrev} disabled={rqi===0} style={{padding:"10px 24px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===0?.3:1,cursor:rqi===0?"default":"pointer"}}>\u2190 Prev</button>
+        <button onClick={goPrev} disabled={rqi===0} style={{padding:"10px 24px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===0?.3:1,cursor:rqi===0?"default":"pointer"}}>← Prev</button>
         <button onClick={()=>setShowAnswer(!showAnswer)} style={{padding:"10px 32px",borderRadius:8,background:showAnswer?"rgba(52,211,153,.1)":TK.orange,border:"none",color:showAnswer?TK.ok:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>{showAnswer?"Hide Answer":"Show Answer"}</button>
         <span style={{fontSize:15,fontWeight:700,color:TK.navy,minWidth:70,textAlign:"center"}}>{rqi+1} / {Q.length}</span>
-        <button onClick={goNext} disabled={rqi===Q.length-1} style={{padding:"10px 24px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===Q.length-1?.3:1,cursor:rqi===Q.length-1?"default":"pointer"}}>Next \u2192</button>
+        <button onClick={goNext} disabled={rqi===Q.length-1} style={{padding:"10px 24px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===Q.length-1?.3:1,cursor:rqi===Q.length-1?"default":"pointer"}}>Next →</button>
       </div>
-      <div style={{textAlign:"center",marginTop:12}}><a href="?" style={{fontSize:13,color:TK.grey,textDecoration:"none"}}>\u2190 Back to quiz</a></div>
+      <div style={{textAlign:"center",marginTop:12}}><a href="?" style={{fontSize:13,color:TK.grey,textDecoration:"none"}}>← Back to quiz</a></div>
     </div>
   </div>
 }
