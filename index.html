@@ -216,18 +216,20 @@ const SHAPES=[
   {shape:"■",color:"#26890C",label:"D"},
 ];
 
-function PlayerShapes({onPick,picked,disabled}){
-  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,width:"100%"}}>
-    {SHAPES.map((s,i)=>{
+function PlayerOptions({options,colors,L,onPick,picked,disabled}){
+  return <div style={{display:"flex",flexDirection:"column",gap:10,width:"100%"}}>
+    {options.map((o,i)=>{
       const isPicked=picked===i;
       return <button key={i} onClick={()=>!disabled&&onPick(i)} disabled={disabled} style={{
-        height:120,borderRadius:12,background:isPicked?s.color:`${s.color}CC`,border:isPicked?`3px solid #fff`:"3px solid transparent",
-        display:"flex",alignItems:"center",justifyContent:"center",fontSize:48,color:"#fff",
-        cursor:disabled?"default":"pointer",transition:"all .2s ease",
-        boxShadow:isPicked?`0 0 20px ${s.color}66`:"none",
+        display:"flex",alignItems:"center",gap:12,padding:"16px 18px",borderRadius:14,width:"100%",boxSizing:"border-box",
+        background:`${colors[i]}12`,border:isPicked?`2px solid ${colors[i]}`:`1.5px solid ${colors[i]}33`,
+        textAlign:"left",transition:"all .2s ease",
+        boxShadow:isPicked?`0 0 0 3px ${colors[i]}33`:"none",
         opacity:disabled&&!isPicked?.5:1,
-        transform:isPicked?"scale(.95)":"scale(1)",
-      }}>{s.shape}</button>
+      }}>
+        <span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{L[i]}</span>
+        <span style={{fontSize:15,color:TK.navy,lineHeight:1.4,fontWeight:isPicked?600:400}}>{o}</span>
+      </button>
     })}
   </div>
 }
@@ -489,7 +491,7 @@ function App(){
 
   if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(qi)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
 
-  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerShapes onPick={(i)=>playerPick(i)} picked={myPick} disabled={sent}/>{sent&&<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>}</Wrap>)}
+  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerPick(i)} picked={myPick} disabled={sent}/>{sent&&<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>}</Wrap>)}
 
   if(phase==="reveal"&&role==="host")return(<Wrap w={1000}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{padding:"8px 14px",borderRadius:8,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",fontSize:13,color:TK.grey}}>👥 {nAnswers}/{nPlayers} answered</div><span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>Reveal</span></div></div>
