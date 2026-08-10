@@ -93,7 +93,7 @@ const Q=[
 {q:"In 2026, who proposed taxing AI companies to fund redistribution?",o:["Only Dario Amodei","Amodei and Altman","Amodei, Altman, and Trump","Amodei, Altman, Trump, and Sanders"],c:3,ex:"All four converged independently.",cat:"Geopolitics",s:"D. Amodei, 'Policy on the AI Exponential' (Jun 2026) · OpenAI, 'Industrial Policy for the Intelligence Age' (Apr 2026) · White House press briefing (Jun 2026) · Sen. B. Sanders, Senate floor proposal (Jul 2026)",sd:"Apr–Jul 2026",st:"policy",xt:'Amodei: 3% token tax · Altman: 5% equity to sovereign fund · Trump: "giving back to the public" · Sanders: 50% one-time stock tax'},
 {q:'Who urged the world to "forestall loss of control" over AI?',o:["Dario Amodei","Xi Jinping","Ursula von der Leyen","Sam Altman"],c:1,ex:"Xi Jinping at WAIC 2026 — nearly identical to Anthropic's Responsible Scaling Policy.",cat:"Geopolitics",s:"Xinhua News Agency — 'Full text of Xi Jinping's keynote speech at the opening ceremony of the 2026 WAIC', english.news.cn, 17 July 2026",sd:"July 17, 2026",st:"speech",xt:'"We must make its oversight and governance precise and effective, and constantly refine measures to forestall loss of control."'},
 {q:"Who proposed giving Americans a direct ownership stake in AI companies?",o:["Bernie Sanders","Sam Altman","Donald Trump","All three, independently"],c:3,ex:"Sanders (50% stock tax), Altman (5% equity fund), Trump — all in 2026.",cat:"Geopolitics",s:"Axios — 'Sam Altman proposes giving 5% of OpenAI equity to US sovereign wealth fund' (Jul 2026) · White House briefing on AI public benefit (Jun 2026) · Sanders Senate proposal for American AI Sovereign Wealth Fund (Jul 2026)",sd:"Apr–Jul 2026",st:"policy",xt:'"Give every American a direct stake in AI-driven growth through a nationally managed fund, seeded by AI companies."'},
-{q:"What made the 2026 Shanghai AI conference unique?",o:["Largest by attendance","First head-of-state keynote + new intl org","First open-source AI treaty","First US-China AI declaration"],c:1,ex:"Xi's first in-person WAIC + launch of WAICO.",cat:"Geopolitics",s:"M. Sheehan, 'Xi Jinping's Big AI Speech, Annotated', Substack (Jul 2026) · Xinhua coverage of 2026 WAIC, Shanghai, 17–20 July 2026",sd:"July 17–20, 2026",st:"speech",xt:"First head of state to keynote a major AI conference. Launch of WAICO (World AI Cooperation Organization) with UN Secretary-General present."},
+{q:"What made the 2026 Shanghai AI conference unique?",o:["Largest by attendance","First head-of-state keynote + new international organization","First open-source AI treaty","First US-China AI declaration"],c:1,ex:"Xi's first in-person WAIC + launch of WAICO.",cat:"Geopolitics",s:"M. Sheehan, 'Xi Jinping's Big AI Speech, Annotated', Substack (Jul 2026) · Xinhua coverage of 2026 WAIC, Shanghai, 17–20 July 2026",sd:"July 17–20, 2026",st:"speech",xt:"First head of state to keynote a major AI conference. Launch of WAICO (World AI Cooperation Organization) with UN Secretary-General present."},
 {q:'What is a "token tax"?',o:["Tax on crypto tokens","3% levy on AI revenue per output","Flat fee per API call","Tax on training compute"],c:1,ex:"Dario Amodei's proposal: 3% each time an LLM produces output.",cat:"Geopolitics",s:"D. Amodei, 'Policy on the AI Exponential', Dario Amodei's blog, June 2026",sd:"June 2026",st:"policy",xt:'"A 3% levy each time a language model produces output. I acknowledge this works against my own financial interest, but it is a reasonable solution."'},
 {q:"If one major AI company gave 5% equity to the public, value per household?",o:["~$30","~$320","~$3,200","~$32,000"],c:1,ex:"OpenAI ~$850B × 5% ÷ 130M households ≈ $320.",cat:"Geopolitics",s:"Axios — 'Sam Altman proposes 5% OpenAI equity to US sovereign wealth fund', July 2026. Valuation data from OpenAI's latest funding round ($850B, Jul 2026)",sd:"July 2026",st:"policy",xt:"$850B × 5% = ~$42.6B ÷ 130M US households ≈ $320. Altman proposed Google, Anthropic, Meta, and xAI each do the same."},
 {q:"Most surprising political consensus of 2026?",o:["AI safety regulation","AI wealth must flow to the public","Open source AI","AI will replace most jobs"],c:1,ex:"A Republican president, a democratic socialist, and two AI CEOs agree on redistribution.",cat:"Geopolitics",s:"Cross-reference of Amodei (Jun 2026), OpenAI policy paper (Apr 2026), Trump White House remarks (Jun 2026), Sanders Senate proposal (Jul 2026) — four independent proposals for AI wealth redistribution within a single quarter",sd:"Q2–Q3 2026",st:"policy",xt:"When capital can think, the old left-right divide on wealth stops making sense. Left, right, and Silicon Valley converge."},
@@ -209,7 +209,129 @@ function LBoard({players,showD=true}){
   </div>
 }
 
+const SHAPES=[
+  {shape:"▲",color:"#E21B3C",label:"A"},
+  {shape:"◆",color:"#1368CE",label:"B"},
+  {shape:"●",color:"#D89E00",label:"C"},
+  {shape:"■",color:"#26890C",label:"D"},
+];
+
+function PlayerShapes({onPick,picked,disabled}){
+  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,width:"100%"}}>
+    {SHAPES.map((s,i)=>{
+      const isPicked=picked===i;
+      return <button key={i} onClick={()=>!disabled&&onPick(i)} disabled={disabled} style={{
+        height:120,borderRadius:12,background:isPicked?s.color:`${s.color}CC`,border:isPicked?`3px solid #fff`:"3px solid transparent",
+        display:"flex",alignItems:"center",justifyContent:"center",fontSize:48,color:"#fff",
+        cursor:disabled?"default":"pointer",transition:"all .2s ease",
+        boxShadow:isPicked?`0 0 20px ${s.color}66`:"none",
+        opacity:disabled&&!isPicked?.5:1,
+        transform:isPicked?"scale(.95)":"scale(1)",
+      }}>{s.shape}</button>
+    })}
+  </div>
+}
+
+function ReviewMode(){
+  const [rqi,setRqi]=useState(0);
+  const [showAnswer,setShowAnswer]=useState(false);
+  const q=Q[rqi];
+  const L=["A","B","C","D"];
+
+  return <div style={{minHeight:"100vh",background:"#FAF6F1",padding:"20px"}}>
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <TKOLogo scale={.8}/>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>{q.cat}</span>
+          <span style={{fontSize:14,color:TK.grey}}>Review Mode</span>
+        </div>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{display:"flex",gap:20}}>
+        {/* HOST VIEW */}
+        <div style={{flex:"1 1 60%",background:"#fff",borderRadius:16,padding:24,border:"1px solid rgba(27,20,100,.08)"}}>
+          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:TK.grey,marginBottom:8}}>Host view</div>
+
+          {/* Question + image */}
+          <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:20}}>
+            <div style={{flex:1}}>
+              <h2 style={{fontSize:20,fontWeight:500,lineHeight:1.45,fontFamily:"Georgia,serif",color:TK.navy}}>{q.q}</h2>
+            </div>
+            <QImg qi={rqi} size={80}/>
+          </div>
+
+          {/* Options */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {q.o.map((o,i)=>{
+              const isC=i===q.c;
+              const revealed=showAnswer;
+              return <div key={i} style={{
+                display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:10,
+                background:revealed&&isC?"rgba(52,211,153,.12)":SHAPES[i].color+"15",
+                border:`2px solid ${revealed&&isC?TK.ok:SHAPES[i].color+"33"}`,
+                transition:"all .3s ease",
+              }}>
+                <span style={{width:30,height:30,borderRadius:8,background:SHAPES[i].color,color:"#fff",fontWeight:800,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{L[i]}</span>
+                <span style={{fontSize:14,color:TK.navy,lineHeight:1.4,fontWeight:revealed&&isC?700:400}}>{o}</span>
+                {revealed&&isC&&<span style={{marginLeft:"auto",color:TK.ok,fontWeight:700}}>✓</span>}
+              </div>
+            })}
+          </div>
+
+          {/* Source card on reveal */}
+          {showAnswer&&<div style={{marginTop:16}}>
+            <div style={{padding:"12px 16px",borderRadius:10,background:"rgba(255,102,51,.06)",border:"1px solid rgba(255,102,51,.1)"}}>
+              <div style={{fontSize:13,lineHeight:1.6,color:"#5A596E"}}>{q.ex}</div>
+            </div>
+            <SCard q={q}/>
+          </div>}
+        </div>
+
+        {/* PARTICIPANT VIEW */}
+        <div style={{flex:"1 1 35%",background:TK.navy,borderRadius:16,padding:24,display:"flex",flexDirection:"column",gap:16}}>
+          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".1em",color:"rgba(255,255,255,.5)",marginBottom:4}}>Participant view</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,.6)",lineHeight:1.5,textAlign:"center",padding:"12px",borderRadius:10,background:"rgba(255,255,255,.05)"}}>
+            Q{rqi+1} · {q.cat}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,flex:1}}>
+            {SHAPES.map((s,i)=>{
+              const isC=i===q.c;
+              const revealed=showAnswer;
+              return <div key={i} style={{
+                borderRadius:12,background:revealed?(isC?s.color:"rgba(255,255,255,.05)"):s.color,
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,color:"#fff",
+                minHeight:90,transition:"all .4s ease",
+                opacity:revealed&&!isC?.3:1,
+              }}>{s.shape}</div>
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:16,marginTop:24}}>
+        <button onClick={()=>{setRqi(Math.max(0,rqi-1));setShowAnswer(false)}} disabled={rqi===0} style={{padding:"10px 20px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===0?.3:1}}>← Prev</button>
+        <button onClick={()=>setShowAnswer(!showAnswer)} style={{padding:"10px 28px",borderRadius:8,background:showAnswer?"rgba(52,211,153,.1)":TK.orange,border:"none",color:showAnswer?TK.ok:"#fff",fontWeight:700,fontSize:14}}>{showAnswer?"Hide Answer":"Show Answer"}</button>
+        <span style={{fontSize:15,fontWeight:700,color:TK.navy,minWidth:60,textAlign:"center"}}>{rqi+1} / {Q.length}</span>
+        <button onClick={()=>{setRqi(Math.min(Q.length-1,rqi+1));setShowAnswer(false)}} disabled={rqi===Q.length-1} style={{padding:"10px 20px",borderRadius:8,background:"rgba(27,20,100,.06)",border:"1px solid rgba(27,20,100,.1)",color:TK.navy,fontWeight:600,fontSize:14,opacity:rqi===Q.length-1?.3:1}}>Next →</button>
+      </div>
+      <div style={{textAlign:"center",marginTop:12}}>
+        <a href="?" style={{fontSize:13,color:TK.grey,textDecoration:"none"}}>← Back to quiz</a>
+      </div>
+    </div>
+  </div>
+}
+
 function App(){
+  // URL routing: ?host → host landing, ?review → review mode, default → player landing
+  const params=new URLSearchParams(window.location.search);
+  const urlMode=params.has("review")?"review":params.has("host")?"host":"player";
+
+  if(urlMode==="review")return <ReviewMode/>;
+
   if(DISABLED)return <BrandBg><div style={{maxWidth:400,margin:"0 auto",textAlign:"center"}}><TKOLogo/><h1 style={{fontSize:36,fontWeight:800,fontFamily:"Georgia,serif",marginTop:48,color:TK.orange,textTransform:"uppercase"}}>Coming Soon</h1><p style={{fontSize:15,color:"rgba(27,20,100,.45)",marginTop:14}}>The quiz will be activated during the seminar.</p><div style={{width:48,height:2,borderRadius:1,background:TK.orange,marginTop:32,opacity:.4,margin:"32px auto 0"}}/></div></BrandBg>;
 
   const [role,setRole]=useState(null);
@@ -319,25 +441,55 @@ function App(){
   const L=["A","B","C","D"],colors=[TK.bad,"#3B82F6",TK.orange,TK.ok];
 
   // ═══ SCREENS ═══
-  if(phase==="choose")return(
+  // HOST LANDING
+  if(phase==="choose"&&urlMode==="host")return(
     <BrandBg><div style={{maxWidth:560,margin:"0 auto",textAlign:"center"}}>
       <TKOLogo/>
       <div style={{marginTop:64}}>
         <h1 style={{fontSize:52,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase",letterSpacing:".02em"}}>AI Quiz</h1>
-        <p style={{fontSize:16,color:"rgba(27,20,100,.45)",marginTop:16,letterSpacing:".05em"}}>24 questions · Geopolitics · Market · Internal</p>
+        <p style={{fontSize:14,fontWeight:600,color:"rgba(27,20,100,.35)",marginTop:12,letterSpacing:".1em",textTransform:"uppercase"}}>Host Dashboard</p>
       </div>
-      <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:44}}>
-        {[{n:"8",l:"Geopolitics",c:"#EF4444"},{n:"10",l:"Market",c:"#10B981"},{n:"6",l:"Internal",c:TK.orange}].map((s,i)=>
+      <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:40}}>
+        {[{n:"8",l:"Geopolitics",c:"#E21B3C"},{n:"10",l:"Market",c:"#26890C"},{n:"6",l:"Internal",c:TK.orange}].map((s,i)=>
           <div key={i} style={{padding:"16px 20px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",minWidth:100}}>
             <div style={{fontSize:28,fontWeight:800,color:s.c}}>{s.n}</div>
             <div style={{fontSize:12,color:"rgba(27,20,100,.4)",marginTop:3}}>{s.l}</div>
           </div>
         )}
       </div>
-      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:48,maxWidth:320,margin:"48px auto 0"}}>
-        <Btn onClick={hostCreate}>Host a Session</Btn>
-        <Btn outline onClick={()=>{setRole("player");setPhase("join")}}>Join as Player</Btn>
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:48,maxWidth:340,margin:"48px auto 0"}}>
+        <Btn onClick={hostCreate}>Start a Session</Btn>
+        <Btn outline onClick={()=>window.location.search="?review"}>Review Questions</Btn>
       </div>
+    </div></BrandBg>
+  );
+
+  // PLAYER LANDING — straight to join form
+  if(phase==="choose"&&urlMode==="player")return(
+    <BrandBg><div style={{maxWidth:420,margin:"0 auto",textAlign:"center"}}>
+      <TKOLogo/>
+      <div style={{marginTop:48}}>
+        <h1 style={{fontSize:42,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase"}}>AI Quiz</h1>
+        <p style={{fontSize:15,color:"rgba(27,20,100,.4)",marginTop:10}}>Enter the session code to join</p>
+      </div>
+      <div style={{marginTop:32,textAlign:"left"}}>
+        <div style={{marginBottom:16}}>
+          <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em"}}>Session Code</label>
+          <input value={joinCode} onChange={e=>{setJoinCode(e.target.value.replace(/\D/g,"").slice(0,4));setErr("")}} placeholder="4-digit code" maxLength={4} style={{width:"100%",marginTop:6,padding:"14px 16px",borderRadius:10,fontSize:28,fontWeight:700,textAlign:"center",letterSpacing:".3em",background:"rgba(27,20,100,.04)",border:"1.5px solid rgba(27,20,100,.12)",color:TK.navy,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em"}}>Your Name</label>
+          <input value={name} onChange={e=>{setName(e.target.value.slice(0,20));setErr("")}} placeholder="Enter your name" maxLength={20} style={{width:"100%",marginTop:6,padding:"12px 16px",borderRadius:10,fontSize:16,background:"rgba(27,20,100,.04)",border:"1.5px solid rgba(27,20,100,.12)",color:TK.navy,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:10}}>Pick Your Avatar</label>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8}}>
+            {AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:48,height:48,borderRadius:12,border:i===avIdx?`2px solid ${TK.orange}`:"2px solid transparent",background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:i===avIdx?`0 0 16px ${TK.orange}44`:"none"}}>{a.emoji}</button>)}
+          </div>
+        </div>
+      </div>
+      {err&&<p style={{color:TK.bad,fontSize:13,marginTop:12,textAlign:"center"}}>{err}</p>}
+      <div style={{marginTop:28,textAlign:"center"}}><Btn onClick={()=>{setRole("player");playerJoin()}} disabled={!joinCode||joinCode.length<4||!name.trim()}>Join Quiz</Btn></div>
     </div></BrandBg>
   );
 
@@ -349,7 +501,7 @@ function App(){
 
   if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(qi)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
 
-  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={480}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:12,color:TK.grey}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:22,fontWeight:700,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"20px",borderRadius:14,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:16}}><h2 style={{fontSize:20,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{pq.q}</h2></div><div style={{display:"flex",flexDirection:"column",gap:10,marginTop:14}}>{pq.o.map((o,i)=>{const pk=myPick===i;return <button key={i} onClick={()=>playerPick(i)} disabled={sent} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"16px 18px",borderRadius:14,background:pk?`${colors[i]}25`:`${colors[i]}10`,border:`2px solid ${pk?colors[i]:colors[i]+"33"}`,color:TK.navy,cursor:sent?"default":"pointer",fontSize:15,textAlign:"left",outline:"none",boxShadow:pk?`0 0 20px ${colors[i]}33`:"none"}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{L[i]}</span><span style={{flex:1,lineHeight:1.4}}>{o}</span></button>})}</div>{sent&&<div style={{textAlign:"center",marginTop:20,padding:"16px",borderRadius:12,background:"rgba(255,102,51,.08)",border:"1px solid rgba(255,102,51,.12)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in</p></div>}</Wrap>)}
+  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerShapes onPick={(i)=>playerPick(i)} picked={myPick} disabled={sent}/>{sent&&<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>}</Wrap>)}
 
   if(phase==="reveal"&&role==="host")return(<Wrap w={1000}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{padding:"8px 14px",borderRadius:8,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",fontSize:13,color:TK.grey}}>👥 {nAnswers}/{nPlayers} answered</div><span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>Reveal</span></div></div>
