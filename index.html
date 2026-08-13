@@ -477,7 +477,7 @@ function App(){
         <div>
           <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:8}}>Pick Your Avatar</label>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6}}>
-            {AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:56,height:56,borderRadius:12,border:i===avIdx?`2px solid ${TK.orange}`:"2px solid transparent",background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:i===avIdx?`0 0 16px ${TK.orange}44`:"none"}}><img src={a.img} style={{width:42,height:42,objectFit:"contain"}}/></button>)}
+            {AVATARS.map((a,i)=><button key={i} onClick={()=>setAvIdx(i)} style={{width:59,height:59,borderRadius:12,border:i===avIdx?`2px solid ${TK.orange}`:"2px solid transparent",background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:i===avIdx?`0 0 16px ${TK.orange}44`:"none"}}><img src={a.img} style={{width:44,height:44,objectFit:"contain"}}/></button>)}
           </div>
         </div>
       </div>
