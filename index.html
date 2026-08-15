@@ -402,9 +402,9 @@ function App(){
     if(!st){setErr("Session not found");return}
     const p=await fbGet(`quiz/${joinCode}/players`)||{};
     if(Object.values(p).some(x=>x.name?.toLowerCase()===name.trim().toLowerCase())){setErr("Name taken");return}
-    p[pid]={name:name.trim(),avatar:avIdx,score:0,delta:0};
-    await fbSet(`quiz/${joinCode}/players`,p);
-    setCode(joinCode);setRole("player");setPlayers(p);setPhase("lobby");
+    const me={name:name.trim(),avatar:avIdx,score:0,delta:0};
+    await fbSet(`quiz/${joinCode}/players/${pid}`,me);
+    setCode(joinCode);setRole("player");setPlayers({...p,[pid]:me});setPhase("lobby");
     unsubs.current.push(fbOn(`quiz/${joinCode}/state`,s=>{if(s)setGState(s)}));
     unsubs.current.push(fbOn(`quiz/${joinCode}/players`,pl=>{if(pl)setPlayers(pl)}));
   };
