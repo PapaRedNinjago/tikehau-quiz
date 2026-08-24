@@ -319,12 +319,78 @@ function ReviewMode(){
   </div>
 }
 
+// Change this to your own passcode. This is a client-side gate only — it keeps the
+// admin page from being stumbled into, not a real access control (the Firebase DB
+// itself has no auth and is readable by anyone with the project config).
+const ADMIN_PASSCODE="tikehau-admin-2026";
+
+function AdminMode(){
+  const [unlocked,setUnlocked]=useState(false);
+  const [pass,setPass]=useState("");
+  const [err,setErr]=useState("");
+  const [results,setResults]=useState(null);
+  const [openId,setOpenId]=useState(null);
+
+  useEffect(()=>{
+    if(!unlocked)return;
+    return fbOn("results",r=>setResults(r||{}));
+  },[unlocked]);
+
+  const tryUnlock=()=>{if(pass===ADMIN_PASSCODE)setUnlocked(true);else setErr("Incorrect passcode")};
+
+  if(!unlocked)return(
+    <Wrap w={380}><div style={{textAlign:"center"}}>
+      <Logo size={28}/>
+      <h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",marginTop:28,color:TK.navy}}>Admin Access</h2>
+      <p style={{color:TK.grey,fontSize:14,marginTop:6}}>Enter the passcode to view past game results.</p>
+      <input type="password" value={pass} onChange={e=>{setPass(e.target.value);setErr("")}} onKeyDown={e=>{if(e.key==="Enter")tryUnlock()}} placeholder="Passcode" style={{width:"100%",marginTop:20,padding:"12px 16px",borderRadius:10,fontSize:16,textAlign:"center",background:"rgba(27,20,100,.04)",border:"1.5px solid rgba(27,20,100,.12)",color:TK.navy,outline:"none",boxSizing:"border-box"}}/>
+      {err&&<p style={{color:TK.bad,fontSize:13,marginTop:10}}>{err}</p>}
+      <div style={{marginTop:20}}><Btn onClick={tryUnlock}>Unlock</Btn></div>
+    </div></Wrap>
+  );
+
+  const list=Object.entries(results||{}).map(([id,r])=>({id,...r})).sort((a,b)=>(b.endedAt||0)-(a.endedAt||0));
+  const deleteResult=async(id)=>{await fbDel(`results/${id}`);if(openId===id)setOpenId(null)};
+
+  return <Wrap w={760}>
+    <div style={{textAlign:"center",marginBottom:28}}>
+      <Logo size={28}/>
+      <h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16,color:TK.navy}}>Past Games</h2>
+      <p style={{color:TK.grey,fontSize:14,marginTop:4}}>{list.length} game{list.length!==1?"s":""} recorded</p>
+    </div>
+    {results===null&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>}
+    {results!==null&&list.length===0&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>No games recorded yet.</p>}
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {list.map(r=>{
+        const rplayers=Object.entries(r.players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
+        const winner=rplayers[0];
+        const isOpen=openId===r.id;
+        return <div key={r.id} style={{borderRadius:14,border:"1px solid rgba(27,20,100,.08)",overflow:"hidden"}}>
+          <div onClick={()=>setOpenId(isOpen?null:r.id)} style={{padding:"16px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",background:isOpen?"rgba(255,102,51,.06)":"#fff"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:15,fontWeight:600,color:TK.navy}}>{new Date(r.endedAt).toLocaleString()}</div>
+              <div style={{fontSize:13,color:TK.grey,marginTop:2}}>Code {r.code} · {rplayers.length} player{rplayers.length!==1?"s":""} · {r.numQuestions} questions</div>
+            </div>
+            {winner&&<div style={{textAlign:"right"}}>
+              <div style={{fontSize:13,fontWeight:700,color:TK.orange}}>🏆 {winner.name}</div>
+              <div style={{fontSize:12,color:TK.grey}}>{winner.score} pts</div>
+            </div>}
+            <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Delete this result?"))deleteResult(r.id)}} style={{background:"none",border:"none",color:TK.grey,fontSize:18,padding:"0 4px",cursor:"pointer"}} title="Delete">✕</button>
+          </div>
+          {isOpen&&<div style={{padding:"0 20px 20px"}}><LBoard players={r.players} showD={false}/></div>}
+        </div>;
+      })}
+    </div>
+  </Wrap>;
+}
+
 function App(){
-  // URL routing: ?host → host landing, ?review → review mode, default → player landing
+  // URL routing: ?host → host landing, ?review → review mode, ?admin → past results, default → player landing
   const params=new URLSearchParams(window.location.search);
-  const urlMode=params.has("review")?"review":params.has("host")?"host":"player";
+  const urlMode=params.has("review")?"review":params.has("admin")?"admin":params.has("host")?"host":"player";
 
   if(urlMode==="review")return <ReviewMode/>;
+  if(urlMode==="admin")return <AdminMode/>;
 
   if(DISABLED)return <BrandBg><div style={{maxWidth:400,margin:"0 auto",textAlign:"center"}}><TKOLogo/><h1 style={{fontSize:36,fontWeight:800,fontFamily:"Georgia,serif",marginTop:48,color:TK.orange,textTransform:"uppercase"}}>Coming Soon</h1><p style={{fontSize:15,color:"rgba(27,20,100,.45)",marginTop:14}}>The quiz will be activated during the seminar.</p><div style={{width:48,height:2,borderRadius:1,background:TK.orange,marginTop:32,opacity:.4,margin:"32px auto 0"}}/></div></BrandBg>;
 
@@ -391,7 +457,12 @@ function App(){
   };
   const hostLB=async()=>{await fbSet(`quiz/${code}/state`,{phase:"leaderboard",currentQ:qi});setPhase("leaderboard")};
   const hostNext=async()=>{
-    if(qi+1>=Q.length){await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});setPhase("final")}
+    if(qi+1>=Q.length){
+      await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});
+      const archived=Object.fromEntries(Object.entries(players).map(([id,p])=>[id,{name:p.name,avatar:p.avatar,score:p.score||0}]));
+      await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,players:archived});
+      setPhase("final");
+    }
     else hostStartQ(qi+1);
   };
 
