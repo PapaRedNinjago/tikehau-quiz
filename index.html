@@ -50,6 +50,8 @@ const db = firebase.database();
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<!-- Excel read/write, used by the admin question editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -88,7 +90,7 @@ function LiveCounter({answered,total}){
   </div>
 }
 
-const Q=[
+const DEFAULT_Q=[
 {q:'Who called AI development "a symphony" requiring global cooperation?',o:["Xi Jinping","Sam Altman (OpenAI)","Dario Amodei (Anthropic)","António Guterres (UN)"],c:0,ex:"Xi Jinping at WAIC Shanghai, July 2026. Nearly indistinguishable from Silicon Valley keynotes.",cat:"Geopolitics",s:"Xinhua News Agency — 'Full text of Xi Jinping's keynote speech at the opening ceremony of the 2026 World Artificial Intelligence Conference', english.news.cn, 17 July 2026",sd:"July 17, 2026",st:"speech",xt:'"AI development should not be a solo performance by a single country, but a symphony of international cooperation."'},
 {q:"In 2026, who proposed taxing AI companies to fund redistribution?",o:["Only Dario Amodei","Amodei and Altman","Amodei, Altman, Trump, and Sanders","Amodei, Altman, and Trump"],c:2,ex:"All four converged independently.",cat:"Geopolitics",s:"D. Amodei, 'Policy on the AI Exponential' (Jun 2026) · OpenAI, 'Industrial Policy for the Intelligence Age' (Apr 2026) · White House press briefing (Jun 2026) · Sen. B. Sanders, Senate floor proposal (Jul 2026)",sd:"Apr–Jul 2026",st:"policy",xt:'Amodei: 3% token tax · Altman: 5% equity to sovereign fund · Trump: "giving back to the public" · Sanders: 50% one-time stock tax'},
 {q:'Who urged the world to "forestall loss of control" over AI?',o:["Dario Amodei","Xi Jinping","Ursula von der Leyen","Sam Altman"],c:1,ex:"Xi Jinping at WAIC 2026 — nearly identical to Anthropic's Responsible Scaling Policy.",cat:"Geopolitics",s:"Xinhua News Agency — 'Full text of Xi Jinping's keynote speech at the opening ceremony of the 2026 WAIC', english.news.cn, 17 July 2026",sd:"July 17, 2026",st:"speech",xt:'"We must make its oversight and governance precise and effective, and constantly refine measures to forestall loss of control."'},
@@ -103,7 +105,7 @@ const Q=[
 {q:"According to BCG, what produces more measurable AI impact?",o:["Strong tools, no strategy","Equal","Neither — it's talent","Clear strategy, limited tools"],c:3,ex:"Strategy + limited tools → 80%. Tools + no strategy → 60%.",cat:"Market",s:"BCG & BCG X, 'AI at Work: Strategy Matters More Than Tools', 4th edition, June 2026 — n=9,923 regular AI users. Measurable impact = improvement in key business metrics attributed to AI",sd:"June 2026",st:"bcg",xt:"Limited clarity + strong tools: 60% impact. Strong clarity + limited tools: 80% impact. Strategy premium: +25 percentage points."},
 {q:"According to Bain, what % of CEOs say AI transformation fully meets ambitions?",o:["52%","18%","36%","5%"],c:1,ex:"Only 18%. 82% at best partially realized.",cat:"Market",s:"Bain & Company, 'Proprietary Intelligence: How to Win with AI', 2026 — CEO survey across 100+ large enterprises, cross-industry",sd:"2026",st:"bain",xt:"82% of CEOs say their AI transformation has at best partially met its ambitions. ~85% of companies not executing well on AI."},
 {q:"According to Bain, what is the #1 barrier CEOs cite for AI stalling?",o:["Lack of in-house expertise","Technology","Regulation","Budget"],c:0,ex:"43% cite expertise, 41% stuck on pilots, 39% data not ready.",cat:"Market",s:"Bain & Company, 'Proprietary Intelligence: How to Win with AI', 2026 — top barriers to AI transformation, CEO-level survey",sd:"2026",st:"bain",xt:"#1 Lack of in-house expertise & tools: 43% · #2 Stuck on pilots: 41% · #3 Data not ready: 39%"},
-{q:"According to Bain, what makes an AI advantage no competitor can copy?",o:["Budget, talent, speed","Cloud, APIs, dashboards","Unique data, workflows, learning loops","LLMs, agents, copilots"],c:2,ex:'Bain\'s "proprietary intelligence" = compounding moat.',cat:"Market",s:"Bain & Company, 'Proprietary Intelligence: How to Win with AI', 2026 — 'proprietary intelligence' framework: the compounding flywheel that creates durable AI advantage",sd:"2026",st:"bain",xt:"Three pillars: (1) Unique data assets (2) Encoded workflows (3) Learning architecture → compounding flywheel no competitor can replicate."},
+{q:"According to Bain, what makes an AI advantage no competitor can copy?",o:["Budget, talent, speed","Cloud, APIs, dashboards","Unique data, workflows, learning loops","LLMs, agents, copilots"],c:2,t:30,ex:'Bain\'s "proprietary intelligence" = compounding moat.',cat:"Market",s:"Bain & Company, 'Proprietary Intelligence: How to Win with AI', 2026 — 'proprietary intelligence' framework: the compounding flywheel that creates durable AI advantage",sd:"2026",st:"bain",xt:"Three pillars: (1) Unique data assets (2) Encoded workflows (3) Learning architecture → compounding flywheel no competitor can replicate."},
 {q:"According to BCG, what % believe agents could do half their job in 3 years?",o:["25%","61%","42%","78%"],c:1,ex:"61% overall. But 50% lack governance for human-AI teams.",cat:"Market",s:"BCG & BCG X, 'AI at Work: Strategy Matters More Than Tools', 4th edition, June 2026 — n=9,923 regular AI users. Agent integration in workflows more than doubled since 2025",sd:"June 2026",st:"bcg",xt:"61% believe agents could perform ≥50% of their job within 3 years. Workflow integration 2× since 2025. Governance still lags."},
 {q:"According to BCG and Bain, the real bottleneck holding back AI value?",o:["Model capability","Cost","Regulation","Organization & management"],c:3,ex:"BCG and Bain both conclude: the bottleneck is organizational.",cat:"Market",s:"BCG & BCG X, 'AI at Work' (Jun 2026): 'The real challenge is now organizational and managerial' · Bain, 'Proprietary Intelligence' (2026): 'The barrier is capability, not technology'",sd:"2026",st:"bcg",xt:'Two independent studies, same conclusion. BCG: "Organizational and managerial." Bain: "Capability, not technology."'},
 {q:"As AI hyperscalers race to build the infrastructure needed to dominate the AI economy, approximately how much in lease and purchase commitments have they accumulated outside conventional reported debt measures?",o:["$500 billion","$2.5 trillion","$1 trillion","$1.5 trillion"],c:1,ex:"~$2.5tn — ~$1.5tn in lease commitments plus ~$982bn in purchase commitments.",cat:"Market",s:"Robin Wigglesworth, 'Just how big is the hidden leverage of AI hyperscalers?', Financial Times, 10 August 2026",sd:"August 10, 2026",st:"ft",xt:"This represents approximately $1.5tn in lease commitments and $982bn in purchase commitments linked to data centres, computing power, chips, equipment and electricity. The question highlights the financial risk behind the AI infrastructure race: the companies may appear lightly leveraged on paper while committing enormous amounts of future cash flow to an uncertain AI investment cycle."},
@@ -111,7 +113,7 @@ const Q=[
 {q:"What is Retina at Tikehau Capital?",o:["AI agent searching internal documents","Biometric login","Portfolio-management funds","External search engine"],c:0,ex:"Searches investment memos, deal summaries, legal docs with source traceability.",cat:"Tikehau",s:"Tikehau Capital — Lagoon AI Training Module v5.6, 'Meet Retina & Lagoon' section, internal documentation 2026",sd:"2026",st:"tikehau",xt:"Retina is an AI agent connected to Lagoon that searches permissioned internal documents — investment memos, deal summaries, legal docs — with source-file traceability and user-level access rights."},
 {q:"What is n8n for Tikehau? 🤖",o:["A social-media management tool","A portfolio valuation database","Tikehau's agentic AI platform, used to orchestrate AI agents and automate workflows","Lagoon's authentication system"],c:2,ex:"n8n orchestrates AI agents and automates workflows across Lagoon.",cat:"Tikehau",s:"Tikehau Capital — Lagoon AI Training Module v5.6, 'What powers Tikehau's AI agents?' section, internal documentation 2026",sd:"2026",st:"tikehau",xt:"n8n is Tikehau's agentic AI platform. It orchestrates AI agents and automates the workflows connecting them with Lagoon, authorized tools, and relevant data sources."},
 {q:"Which protocol covers hallucination risks?",o:["Trust confident answers","Only verify figures","AI self-check","Verify facts AND validate AI understanding"],c:3,ex:"Invention = fabricates data. Appreciation = misunderstands request. Both need verification.",cat:"Tikehau",s:"Tikehau Capital — Lagoon AI Training Module v5.6, Question 8: 'Verification protocol for sensitive processes (due diligence, financial reporting)'",sd:"2026",st:"tikehau",xt:"Two distinct risks: Invention hallucination = AI fabricates facts/figures. Appreciation hallucination = AI misunderstands the question. Both must be systematically verified before using results."},
-{q:"Key difference: AI Champion vs AI Coordinator?",o:["Champion = AI fluency & ambassador; Coordinator = evaluation & relevance of the project","Interchangeable","Coordinator only Lagoon-wide","Champion disappears after scoping"],c:0,ex:"Champion = fluency + ambassador. Coordinator = evaluates the project's relevance.",cat:"Tikehau",s:"Tikehau Capital — AI Governance Framework, Question 7: 'AI Champion vs AI Coordinator responsibilities', Expert-level module",sd:"2026",st:"tikehau",xt:"AI Champion: builds AI fluency, assesses automation potential, acts as ambassador/knowledge carrier. AI Coordinator: responsible for evaluating the project and its relevance before it moves forward, rather than owning the roadmap itself."},
+{q:"Key difference: AI Champion vs AI Coordinator?",o:["Champion = AI fluency & ambassador; Coordinator = evaluation & relevance of the project","Interchangeable","Coordinator only Lagoon-wide","Champion disappears after scoping"],c:0,t:30,ex:"Champion = fluency + ambassador. Coordinator = evaluates the project's relevance.",cat:"Tikehau",s:"Tikehau Capital — AI Governance Framework, Question 7: 'AI Champion vs AI Coordinator responsibilities', Expert-level module",sd:"2026",st:"tikehau",xt:"AI Champion: builds AI fluency, assesses automation potential, acts as ambassador/knowledge carrier. AI Coordinator: responsible for evaluating the project and its relevance before it moves forward, rather than owning the roadmap itself."},
 {q:"New AI idea in your team — how to route it?",o:["Auto Lagoon-wide","AI Coordinator scopes it","Implement directly","External consultants"],c:1,ex:"The AI Coordinator scopes the idea across BU/group/Lagoon.",cat:"Tikehau",s:"Tikehau Capital — AI Governance Framework, Question 9: 'How a new AI idea is typically routed and supported', Expert-level module",sd:"2026",st:"tikehau",xt:"Three possible project scopes: Business Unit · Group-wide · Lagoon platform. The AI Coordinator scopes and routes the idea across these levels."},
 {q:"Tikehau's AI productivity target by end 2027?",o:["Save €10M OpEx","Replace 50% manual reporting","Equivalent of 100 FTEs","Reduce headcount 15%"],c:2,ex:"100 FTE-equivalent — freeing capacity, not cutting headcount.",cat:"Tikehau",s:"Tikehau Capital — AI Steering Committee, Strategic Objectives 2025–2027, presented to Executive Committee",sd:"2025–2027",st:"tikehau",xt:"Target: equivalent of 100 FTEs in productivity gains by end of 2027. Capacity freed for higher-value work across business units — not headcount reduction."},
 {q:"Approximately what percentage of Tikehau Capital employees use Lagoon?",o:["90%","99%","95%","100%"],c:1,ex:"~99% of Tikehau employees now use Lagoon.",cat:"Tikehau",s:"Tikehau Capital — AI Steering Committee, internal reporting, 2026",sd:"2026",st:"tikehau",xt:"Lagoon adoption has reached virtually the entire workforce — about 99% — reflecting how completely AI tools have moved from pilot teams to standard, everyday use across the firm."},
@@ -120,7 +122,7 @@ const Q=[
 ];
 
 const TSEC=20,TLONG=30,MAXP=1000;
-function tFor(i){return i===14||i===22?TLONG:TSEC}
+function qTime(q){return (q&&q.t)||TSEC}
 function genCode(){return String(1000+Math.floor(Math.random()*9000))}
 function genId(){return Math.random().toString(36).slice(2,8)}
 
@@ -129,6 +131,24 @@ function fbSet(path,val){return db.ref(path).set(val)}
 function fbGet(path){return db.ref(path).once("value").then(s=>s.val())}
 function fbOn(path,cb){db.ref(path).on("value",s=>cb(s.val()));return()=>db.ref(path).off()}
 function fbDel(path){return db.ref(path).remove()}
+
+// Questions live in Firebase (`questions/`) so they can be edited from the admin
+// page without redeploying. DEFAULT_Q seeds that node the first time the app runs
+// against an empty database; after that, Firebase is the source of truth.
+function useQuestions(){
+  const [questions,setQuestions]=useState(null);
+  const seeded=useRef(false);
+  useEffect(()=>fbOn("questions",qs=>{
+    const keys=qs?Object.keys(qs):[];
+    if(keys.length>0){
+      setQuestions(keys.sort((a,b)=>+a-+b).map(k=>qs[k]));
+    } else if(!seeded.current){
+      seeded.current=true;
+      fbSet("questions",Object.fromEntries(DEFAULT_Q.map((q,i)=>[i,q])));
+    }
+  }),[]);
+  return questions;
+}
 
 // ── UI ──
 function TKOLogo({scale=1}){
@@ -239,18 +259,22 @@ function PlayerOptions({options,colors,L,onPick,picked,disabled}){
 }
 
 function ReviewMode(){
+  const Q=useQuestions();
   const [rqi,setRqi]=useState(0);
   const [showAnswer,setShowAnswer]=useState(false);
-  const q=Q[rqi];
   const L=["A","B","C","D"];
 
   const goPrev=()=>{if(rqi>0){setShowAnswer(false);setRqi(r=>r-1)}};
-  const goNext=()=>{if(rqi<Q.length-1){setShowAnswer(false);setRqi(r=>r+1)}};
+  const goNext=()=>{if(Q&&rqi<Q.length-1){setShowAnswer(false);setRqi(r=>r+1)}};
 
   useEffect(()=>{
-    const h=(e)=>{if(e.key==="ArrowLeft")goPrev();if(e.key==="ArrowRight")goNext();if(e.key===" "||e.key==="Enter"){e.preventDefault();setShowAnswer(v=>!v)}};
+    const h=(e)=>{if(!Q)return;if(e.key==="ArrowLeft")goPrev();if(e.key==="ArrowRight")goNext();if(e.key===" "||e.key==="Enter"){e.preventDefault();setShowAnswer(v=>!v)}};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   });
+
+  if(!Q)return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",alignItems:"center",justifyContent:"center"}}><p style={{color:TK.grey}}>Loading…</p></div>;
+
+  const q=Q[Math.min(rqi,Q.length-1)];
 
   return <div style={{minHeight:"100vh",background:"#FAF6F1",padding:"20px"}}>
     <div style={{maxWidth:1100,margin:"0 auto"}}>
@@ -324,17 +348,79 @@ function ReviewMode(){
 // itself has no auth and is readable by anyone with the project config).
 const ADMIN_PASSCODE="tikehau-admin-2026";
 
+const XLSX_HEADERS=["Question","Option A","Option B","Option C","Option D","Correct (A-D)","Timer (sec)","Category","Short Explanation","Long Explanation","Source","Source Date","Source Icon"];
+
+function blankQuestion(){return {q:"",o:["","","",""],c:0,t:TSEC,cat:"",ex:"",xt:"",s:"",sd:"",st:"bcg"}}
+
+function questionToRow(q){
+  return {
+    "Question":q.q||"",
+    "Option A":q.o?.[0]||"",
+    "Option B":q.o?.[1]||"",
+    "Option C":q.o?.[2]||"",
+    "Option D":q.o?.[3]||"",
+    "Correct (A-D)":["A","B","C","D"][q.c]||"A",
+    "Timer (sec)":q.t||TSEC,
+    "Category":q.cat||"",
+    "Short Explanation":q.ex||"",
+    "Long Explanation":q.xt||"",
+    "Source":q.s||"",
+    "Source Date":q.sd||"",
+    "Source Icon":q.st||"bcg",
+  };
+}
+
+function rowToQuestion(row){
+  const norm={};
+  Object.keys(row).forEach(k=>{norm[k.trim().toLowerCase().replace(/[^a-z]/g,"")]=row[k]});
+  const get=k=>norm[k]!==undefined?String(norm[k]).trim():"";
+  const correctRaw=(get("correctad")||get("correct")||"A").toUpperCase();
+  const letterIdx="ABCD".indexOf(correctRaw[0]);
+  const numIdx=Number(correctRaw);
+  const c=letterIdx>=0?letterIdx:(numIdx>=1&&numIdx<=4?numIdx-1:0);
+  return {
+    q:get("question"),
+    o:[get("optiona"),get("optionb"),get("optionc"),get("optiond")],
+    c,
+    t:Number(get("timersec")||get("timer"))||TSEC,
+    cat:get("category"),
+    ex:get("shortexplanation"),
+    xt:get("longexplanation"),
+    s:get("source"),
+    sd:get("sourcedate"),
+    st:get("sourceicon")||"bcg",
+  };
+}
+
+function validateQuestion(q){
+  if(!q.q||!q.q.trim())return "question text is required";
+  if(!Array.isArray(q.o)||q.o.length!==4||q.o.some(o=>!o||!String(o).trim()))return "all 4 options are required";
+  if(!(q.c>=0&&q.c<=3))return "correct answer must be A, B, C or D";
+  return null;
+}
+
 function AdminMode(){
   const [unlocked,setUnlocked]=useState(false);
   const [pass,setPass]=useState("");
   const [err,setErr]=useState("");
+  const [tab,setTab]=useState("results");
   const [results,setResults]=useState(null);
   const [openId,setOpenId]=useState(null);
+  const Q=useQuestions();
+  const [draft,setDraft]=useState(null);
+  const [dirty,setDirty]=useState(false);
+  const [editIdx,setEditIdx]=useState(null);
+  const [saveMsg,setSaveMsg]=useState("");
+  const fileRef=useRef(null);
 
   useEffect(()=>{
     if(!unlocked)return;
     return fbOn("results",r=>setResults(r||{}));
   },[unlocked]);
+
+  useEffect(()=>{
+    if(draft===null&&Q)setDraft(Q.map(q=>({q:q.q||"",o:[...(q.o||["","","",""])],c:q.c??0,t:q.t||TSEC,cat:q.cat||"",ex:q.ex||"",xt:q.xt||"",s:q.s||"",sd:q.sd||"",st:q.st||"bcg"})));
+  },[Q,draft]);
 
   const tryUnlock=()=>{if(pass===ADMIN_PASSCODE)setUnlocked(true);else setErr("Incorrect passcode")};
 
@@ -349,42 +435,161 @@ function AdminMode(){
     </div></Wrap>
   );
 
+  // ── Past games ──
   const list=Object.entries(results||{}).map(([id,r])=>({id,...r})).sort((a,b)=>(b.endedAt||0)-(a.endedAt||0));
   const deleteResult=async(id)=>{await fbDel(`results/${id}`);if(openId===id)setOpenId(null)};
 
-  return <Wrap w={760}>
-    <div style={{textAlign:"center",marginBottom:28}}>
+  // ── Question editor ──
+  const fieldLabel={fontSize:11,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".05em",display:"block",marginBottom:4};
+  const fieldInput={width:"100%",padding:"8px 10px",borderRadius:8,fontSize:13,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.12)",color:TK.navy,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
+
+  const updateQ=(idx,field,value)=>{setDraft(d=>d.map((q,i)=>i===idx?{...q,[field]:value}:q));setDirty(true);setSaveMsg("")};
+  const updateOpt=(idx,oi,value)=>{setDraft(d=>d.map((q,i)=>i===idx?{...q,o:q.o.map((o,j)=>j===oi?value:o)}:q));setDirty(true);setSaveMsg("")};
+  const addQuestion=()=>{setDraft(d=>[...d,blankQuestion()]);setEditIdx(draft.length);setDirty(true);setSaveMsg("")};
+  const deleteQuestion=idx=>{if(!window.confirm("Delete this question?"))return;setDraft(d=>d.filter((_,i)=>i!==idx));if(editIdx===idx)setEditIdx(null);setDirty(true);setSaveMsg("")};
+
+  const saveAll=async()=>{
+    for(let i=0;i<draft.length;i++){
+      const e=validateQuestion(draft[i]);
+      if(e){setSaveMsg(`Question ${i+1}: ${e}`);return}
+    }
+    setSaveMsg("Saving…");
+    const clean=draft.map(q=>({q:q.q.trim(),o:q.o.map(o=>String(o).trim()),c:Number(q.c),t:Number(q.t)||TSEC,cat:(q.cat||"").trim()||"General",ex:(q.ex||"").trim(),xt:(q.xt||"").trim(),s:(q.s||"").trim(),sd:(q.sd||"").trim(),st:(q.st||"").trim()||"bcg"}));
+    await fbSet("questions",Object.fromEntries(clean.map((q,i)=>[i,q])));
+    setDirty(false);setSaveMsg(`Saved ${clean.length} question${clean.length!==1?"s":""}.`);
+  };
+
+  const downloadTemplate=()=>{
+    const rows=(draft&&draft.length?draft:[blankQuestion()]).map(questionToRow);
+    const ws=XLSX.utils.json_to_sheet(rows,{header:XLSX_HEADERS});
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Questions");
+    XLSX.writeFile(wb,"quiz-questions.xlsx");
+  };
+
+  const uploadExcel=e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const wb=XLSX.read(ev.target.result,{type:"array"});
+        const sheet=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(sheet,{defval:""});
+        const parsed=rows.map(rowToQuestion).filter(q=>q.q);
+        if(parsed.length===0){setSaveMsg("No valid rows found in that file.");return}
+        for(let i=0;i<parsed.length;i++){
+          const rowErr=validateQuestion(parsed[i]);
+          if(rowErr){setSaveMsg(`Row ${i+1} of the file: ${rowErr}`);return}
+        }
+        if(window.confirm(`Load ${parsed.length} question${parsed.length!==1?"s":""} from this file? This replaces the ${draft.length} question${draft.length!==1?"s":""} currently shown here — nothing is saved to the live quiz until you click "Save All Changes".`)){
+          setDraft(parsed);setEditIdx(null);setDirty(true);setSaveMsg(`Loaded ${parsed.length} question${parsed.length!==1?"s":""} from file — review below, then Save All Changes.`);
+        }
+      }catch(readErr){setSaveMsg("Could not read that file — make sure it's an .xlsx exported from the template.")}
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value="";
+  };
+
+  return <Wrap w={900}>
+    <div style={{textAlign:"center",marginBottom:24}}>
       <Logo size={28}/>
-      <h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16,color:TK.navy}}>Past Games</h2>
-      <p style={{color:TK.grey,fontSize:14,marginTop:4}}>{list.length} game{list.length!==1?"s":""} recorded</p>
+      <h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16,color:TK.navy}}>Admin</h2>
     </div>
-    {results===null&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>}
-    {results!==null&&list.length===0&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>No games recorded yet.</p>}
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {list.map(r=>{
-        const rplayers=Object.entries(r.players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
-        const winner=rplayers[0];
-        const isOpen=openId===r.id;
-        return <div key={r.id} style={{borderRadius:14,border:"1px solid rgba(27,20,100,.08)",overflow:"hidden"}}>
-          <div onClick={()=>setOpenId(isOpen?null:r.id)} style={{padding:"16px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",background:isOpen?"rgba(255,102,51,.06)":"#fff"}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:15,fontWeight:600,color:TK.navy}}>{new Date(r.endedAt).toLocaleString()}</div>
-              <div style={{fontSize:13,color:TK.grey,marginTop:2}}>Code {r.code} · {rplayers.length} player{rplayers.length!==1?"s":""} · {r.numQuestions} questions</div>
+    <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:28}}>
+      <button onClick={()=>setTab("results")} style={{padding:"8px 18px",borderRadius:999,border:"none",fontSize:13,fontWeight:700,cursor:"pointer",background:tab==="results"?TK.orange:"rgba(27,20,100,.06)",color:tab==="results"?"#fff":TK.navy}}>Past Games</button>
+      <button onClick={()=>setTab("questions")} style={{padding:"8px 18px",borderRadius:999,border:"none",fontSize:13,fontWeight:700,cursor:"pointer",background:tab==="questions"?TK.orange:"rgba(27,20,100,.06)",color:tab==="questions"?"#fff":TK.navy}}>Edit Questions</button>
+    </div>
+
+    {tab==="results"&&<div>
+      <p style={{textAlign:"center",color:TK.grey,fontSize:14,marginTop:-16,marginBottom:20}}>{list.length} game{list.length!==1?"s":""} recorded</p>
+      {results===null&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>}
+      {results!==null&&list.length===0&&<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>No games recorded yet.</p>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {list.map(r=>{
+          const rplayers=Object.entries(r.players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
+          const winner=rplayers[0];
+          const isOpen=openId===r.id;
+          return <div key={r.id} style={{borderRadius:14,border:"1px solid rgba(27,20,100,.08)",overflow:"hidden"}}>
+            <div onClick={()=>setOpenId(isOpen?null:r.id)} style={{padding:"16px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",background:isOpen?"rgba(255,102,51,.06)":"#fff"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15,fontWeight:600,color:TK.navy}}>{new Date(r.endedAt).toLocaleString()}</div>
+                <div style={{fontSize:13,color:TK.grey,marginTop:2}}>Code {r.code} · {rplayers.length} player{rplayers.length!==1?"s":""} · {r.numQuestions} questions</div>
+              </div>
+              {winner&&<div style={{textAlign:"right"}}>
+                <div style={{fontSize:13,fontWeight:700,color:TK.orange}}>🏆 {winner.name}</div>
+                <div style={{fontSize:12,color:TK.grey}}>{winner.score} pts</div>
+              </div>}
+              <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Delete this result?"))deleteResult(r.id)}} style={{background:"none",border:"none",color:TK.grey,fontSize:18,padding:"0 4px",cursor:"pointer"}} title="Delete">✕</button>
             </div>
-            {winner&&<div style={{textAlign:"right"}}>
-              <div style={{fontSize:13,fontWeight:700,color:TK.orange}}>🏆 {winner.name}</div>
-              <div style={{fontSize:12,color:TK.grey}}>{winner.score} pts</div>
-            </div>}
-            <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Delete this result?"))deleteResult(r.id)}} style={{background:"none",border:"none",color:TK.grey,fontSize:18,padding:"0 4px",cursor:"pointer"}} title="Delete">✕</button>
-          </div>
-          {isOpen&&<div style={{padding:"0 20px 20px"}}><LBoard players={r.players} showD={false}/></div>}
-        </div>;
-      })}
-    </div>
+            {isOpen&&<div style={{padding:"0 20px 20px"}}><LBoard players={r.players} showD={false}/></div>}
+          </div>;
+        })}
+      </div>
+    </div>}
+
+    {tab==="questions"&&<div>
+      {draft===null?<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>:<>
+        <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:8}}>
+          <Btn outline onClick={addQuestion}>+ Add Question</Btn>
+          <Btn outline onClick={downloadTemplate}>⬇ Download Template</Btn>
+          <Btn outline onClick={()=>fileRef.current.click()}>⬆ Upload Excel</Btn>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={uploadExcel} style={{display:"none"}}/>
+          <Btn onClick={saveAll} disabled={!dirty}>Save All Changes</Btn>
+        </div>
+        {saveMsg&&<p style={{textAlign:"center",fontSize:13,color:saveMsg.startsWith("Saved")||saveMsg.startsWith("Loaded")?TK.ok:TK.bad,marginBottom:12}}>{saveMsg}</p>}
+        <p style={{textAlign:"center",fontSize:13,color:TK.grey,marginBottom:20}}>{draft.length} question{draft.length!==1?"s":""}{dirty?" · unsaved changes":""}</p>
+
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {draft.map((q,idx)=>{
+            const isEdit=editIdx===idx;
+            return <div key={idx} style={{borderRadius:12,border:"1px solid rgba(27,20,100,.08)",overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,background:isEdit?"rgba(255,102,51,.06)":"#fff"}}>
+                <span style={{fontSize:12,color:TK.grey,width:22,flexShrink:0}}>{idx+1}</span>
+                <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,background:"rgba(27,20,100,.06)",color:TK.navy,flexShrink:0,whiteSpace:"nowrap"}}>{q.cat||"—"}</span>
+                <span style={{flex:1,fontSize:14,color:TK.navy,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{q.q||<i style={{color:TK.grey}}>Untitled question</i>}</span>
+                <span style={{fontSize:12,color:TK.ok,fontWeight:600,flexShrink:0,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{"ABCD"[q.c]}: {q.o[q.c]}</span>
+                <span style={{fontSize:12,color:TK.grey,flexShrink:0}}>{q.t||TSEC}s</span>
+                <button onClick={()=>setEditIdx(isEdit?null:idx)} style={{background:"none",border:"none",color:TK.orange,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0}}>{isEdit?"Close":"Edit"}</button>
+                <button onClick={()=>deleteQuestion(idx)} style={{background:"none",border:"none",color:TK.grey,fontSize:16,cursor:"pointer",flexShrink:0}} title="Delete">✕</button>
+              </div>
+              {isEdit&&<div style={{padding:"16px 20px",borderTop:"1px solid rgba(27,20,100,.06)",display:"flex",flexDirection:"column",gap:12}}>
+                <div>
+                  <label style={fieldLabel}>Question</label>
+                  <textarea value={q.q} onChange={e=>updateQ(idx,"q",e.target.value)} rows={2} style={fieldInput}/>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[0,1,2,3].map(oi=>
+                    <div key={oi} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <input type="radio" name={`correct-${idx}`} checked={q.c===oi} onChange={()=>updateQ(idx,"c",oi)} title="Correct answer"/>
+                      <span style={{fontSize:12,fontWeight:700,color:TK.grey,width:14,flexShrink:0}}>{"ABCD"[oi]}</span>
+                      <input value={q.o[oi]} onChange={e=>updateOpt(idx,oi,e.target.value)} placeholder={`Option ${"ABCD"[oi]}`} style={{...fieldInput,flex:1}}/>
+                    </div>
+                  )}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10}}>
+                  <div><label style={fieldLabel}>Category</label><input value={q.cat} onChange={e=>updateQ(idx,"cat",e.target.value)} style={fieldInput}/></div>
+                  <div><label style={fieldLabel}>Timer (sec)</label><input type="number" min="5" value={q.t} onChange={e=>updateQ(idx,"t",e.target.value)} style={fieldInput}/></div>
+                </div>
+                <div><label style={fieldLabel}>Short explanation</label><input value={q.ex} onChange={e=>updateQ(idx,"ex",e.target.value)} style={fieldInput}/></div>
+                <div><label style={fieldLabel}>Long explanation</label><textarea value={q.xt} onChange={e=>updateQ(idx,"xt",e.target.value)} rows={3} style={fieldInput}/></div>
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
+                  <div><label style={fieldLabel}>Source</label><input value={q.s} onChange={e=>updateQ(idx,"s",e.target.value)} style={fieldInput}/></div>
+                  <div><label style={fieldLabel}>Source date</label><input value={q.sd} onChange={e=>updateQ(idx,"sd",e.target.value)} style={fieldInput}/></div>
+                  <div><label style={fieldLabel}>Source icon key</label><input value={q.st} onChange={e=>updateQ(idx,"st",e.target.value)} placeholder="bcg, bain, tikehau, ft, ev, speech, policy" style={fieldInput}/></div>
+                </div>
+              </div>}
+            </div>;
+          })}
+        </div>
+      </>}
+    </div>}
   </Wrap>;
 }
 
 function App(){
+  const Q=useQuestions();
+
   // URL routing: ?host → host landing, ?review → review mode, ?admin → past results, default → player landing
   const params=new URLSearchParams(window.location.search);
   const urlMode=params.has("review")?"review":params.has("admin")?"admin":params.has("host")?"host":"player";
@@ -418,7 +623,9 @@ function App(){
   const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
   useEffect(()=>()=>cleanup(),[]);
 
-  const question=Q[qi];
+  if(!Q)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
+
+  const question=Q[Math.min(qi,Q.length-1)];
   const nPlayers=Object.keys(players).length;
   const nAnswers=Object.keys(answers).length;
   const dist=[0,0,0,0];Object.values(answers).forEach(a=>{if(a.pick>=0&&a.pick<4)dist[a.pick]++});
@@ -433,7 +640,7 @@ function App(){
   };
   const hostStartQ=async(q)=>{
     const now=Date.now();qStart.current=now;
-    setQi(q);setAnswers({});setPhase("question");setTl(tFor(q));
+    setQi(q);setAnswers({});setPhase("question");setTl(qTime(Q[q]));
     await fbSet(`quiz/${code}/state`,{phase:"question",currentQ:q,startTime:now});
     await fbSet(`quiz/${code}/ans_${q}`,{});
     stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
@@ -445,7 +652,7 @@ function App(){
     stopT();
     const a=await fbGet(`quiz/${code}/ans_${qi}`)||{};setAnswers(a);
     const p=await fbGet(`quiz/${code}/players`)||{};
-    const mx=tFor(qi)*1000;
+    const mx=qTime(Q[qi])*1000;
     Object.entries(a).forEach(([id,ans])=>{
       if(p[id]&&ans.pick===Q[qi].c){const b=Math.max(0,Math.round(MAXP*(1-ans.timeMs/mx)));p[id].delta=b;p[id].score=(p[id].score||0)+b}
       else if(p[id])p[id].delta=0;
@@ -495,7 +702,7 @@ function App(){
       prevP.current=gp;
       if(gp==="question"){
         setQi(gState.currentQ);setMyPick(null);setSent(false);setPhase("question");
-        qStart.current=gState.startTime;setTl(tFor(gState.currentQ));
+        qStart.current=gState.startTime;setTl(qTime(Q[gState.currentQ]));
         stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
       }
       if(gp==="reveal"){stopT();setQi(gState.currentQ);setPhase("reveal")}
@@ -516,9 +723,9 @@ function App(){
         <p style={{fontSize:14,fontWeight:600,color:"rgba(27,20,100,.35)",marginTop:12,letterSpacing:".1em",textTransform:"uppercase"}}>Host Dashboard</p>
       </div>
       <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:40}}>
-        {[{n:"7",l:"Geopolitics",c:"#E21B3C"},{n:"13",l:"Market",c:"#26890C"},{n:"8",l:"Internal",c:TK.orange}].map((s,i)=>
+        {[{cat:"Geopolitics",l:"Geopolitics",c:"#E21B3C"},{cat:"Market",l:"Market",c:"#26890C"},{cat:"Tikehau",l:"Internal",c:TK.orange}].map((s,i)=>
           <div key={i} style={{padding:"16px 20px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",minWidth:100}}>
-            <div style={{fontSize:28,fontWeight:800,color:s.c}}>{s.n}</div>
+            <div style={{fontSize:28,fontWeight:800,color:s.c}}>{Q.filter(x=>x.cat===s.cat).length}</div>
             <div style={{fontSize:12,color:"rgba(27,20,100,.4)",marginTop:3}}>{s.l}</div>
           </div>
         )}
@@ -564,9 +771,9 @@ function App(){
 
   if(phase==="lobby"&&role==="player")return(<Wrap w={440}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{marginTop:40}}><Av i={avIdx} size={64}/></div><h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16}}>{name}</h2><p style={{color:TK.grey,fontSize:14,marginTop:4}}>Session <span style={{color:TK.orange,fontWeight:700}}>{code}</span></p><div style={{marginTop:32,padding:"20px",borderRadius:14,background:"rgba(27,20,100,.02)",border:"1px solid rgba(27,20,100,.08)"}}><div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>{Object.values(players).map((p,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,background:"rgba(27,20,100,.04)"}}><img src={AVATARS[p.avatar]?.img} style={{width:18,height:18,objectFit:"contain"}}/><span style={{fontSize:13,color:"#6B6A80"}}>{p.name}</span></div>)}</div></div><div style={{marginTop:36}}><div className="spinner"/></div><p style={{color:TK.grey,fontSize:14,marginTop:12}}>Waiting for the host…</p></div></Wrap>);
 
-  if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(qi)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
+  if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(question)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
 
-  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={tFor(gqi)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerSelect(i)} picked={myPick} disabled={sent||tl<=0}/>{myPick!==null&&!sent&&tl>0&&<div style={{marginTop:16,textAlign:"center"}}><Btn onClick={playerConfirm}>Confirm Answer</Btn></div>}{sent?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>:tl<=0?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:TK.badBg,border:`1px solid ${TK.bad}33`}}><span style={{fontSize:24}}>⏱</span><p style={{fontSize:14,color:TK.bad,fontWeight:600,margin:"6px 0 0"}}>Time's up!</p></div>:null}</Wrap>)}
+  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(pq)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerSelect(i)} picked={myPick} disabled={sent||tl<=0}/>{myPick!==null&&!sent&&tl>0&&<div style={{marginTop:16,textAlign:"center"}}><Btn onClick={playerConfirm}>Confirm Answer</Btn></div>}{sent?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>:tl<=0?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:TK.badBg,border:`1px solid ${TK.bad}33`}}><span style={{fontSize:24}}>⏱</span><p style={{fontSize:14,color:TK.bad,fontWeight:600,margin:"6px 0 0"}}>Time's up!</p></div>:null}</Wrap>)}
 
   if(phase==="reveal"&&role==="host")return(<Wrap w={1000}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{padding:"8px 14px",borderRadius:8,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",fontSize:13,color:TK.grey}}>👥 {nAnswers}/{nPlayers} answered</div><span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>Reveal</span></div></div>
