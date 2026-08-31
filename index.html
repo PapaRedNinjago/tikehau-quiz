@@ -622,10 +622,6 @@ function App(){
   const stopT=()=>{if(tRef.current){clearInterval(tRef.current);tRef.current=null}};
   const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
   useEffect(()=>()=>cleanup(),[]);
-
-  if(!Q)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
-
-  const question=Q[Math.min(qi,Q.length-1)];
   const nPlayers=Object.keys(players).length;
   const nAnswers=Object.keys(answers).length;
   const dist=[0,0,0,0];Object.values(answers).forEach(a=>{if(a.pick>=0&&a.pick<4)dist[a.pick]++});
@@ -711,6 +707,9 @@ function App(){
     }
   },[gState,role]);
 
+  if(!Q)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
+
+  const question=Q[Math.min(qi,Q.length-1)];
   const L=["A","B","C","D"],colors=[TK.bad,"#3B82F6",TK.orange,TK.ok];
 
   // ═══ SCREENS ═══
