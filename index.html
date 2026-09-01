@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>AI Quiz</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23FF6633'/><text x='16' y='23' text-anchor='middle' font-size='20' font-weight='800' fill='%231B1464' font-family='Georgia'>T</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -793,7 +795,7 @@ function App(){
       if(gp==="question"){
         setQi(gState.currentQ);setMyPick(null);setSent(false);setPhase("question");
         qStart.current=gState.startTime;
-        const myQuiz=gState.quizId&&quizzes?quizzes[gState.quizId]:null;
+        const myQuiz=quizzes?((gState.quizId&&quizzes[gState.quizId])?quizzes[gState.quizId]:Object.values(quizzes)[0]):null;
         setTl(qTime(myQuiz&&myQuiz.questions[gState.currentQ]));
         stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
       }
@@ -806,9 +808,12 @@ function App(){
   if(!quizzes)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
 
   // Host picks the quiz from the landing screen; a player inherits whichever quiz
-  // the host started the session with, via the synced game state.
+  // the host started the session with, via the synced game state. Fall back to the
+  // first available quiz if the session's quizId is missing/stale (e.g. a host tab
+  // still running cached pre-multi-quiz code) so a player never gets stuck on an
+  // empty question set.
   const activeQuizId=urlMode==="host"?selectedQuizId:(gState?.quizId||null);
-  const activeQuiz=activeQuizId?quizzes[activeQuizId]:null;
+  const activeQuiz=(activeQuizId&&quizzes[activeQuizId])?quizzes[activeQuizId]:(Object.values(quizzes)[0]||null);
   const Q=activeQuiz?activeQuiz.questions:[];
   const question=Q.length?Q[Math.min(qi,Q.length-1)]:null;
   const L=["A","B","C","D"],colors=[TK.bad,"#3B82F6",TK.orange,TK.ok];
@@ -922,7 +927,7 @@ function App(){
   if(phase==="leaderboard"){
     const sortedLB=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
     const myRankLB=role==="player"?sortedLB.findIndex(p=>p.id===pid)+1:0;
-    return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p>{role==="player"&&myRankLB>0&&<div className="fi d2" style={{display:"inline-flex",alignItems:"center",gap:8,marginTop:12,padding:"8px 18px",borderRadius:999,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.25)"}}><span style={{fontSize:13,color:TK.grey}}>Your rank</span><span style={{fontSize:16,fontWeight:800,color:TK.orange}}>#{myRankLB}</span><span style={{fontSize:13,color:TK.grey}}>of {sortedLB.length}</span></div>}</div><div style={{marginTop:24}}><LBoard players={players} myId={role==="player"?pid:null}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
+    return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p>{role==="player"&&myRankLB>0&&<div className="fi d2" style={{display:"inline-flex",alignItems:"center",gap:8,marginTop:12,padding:"8px 18px",borderRadius:999,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.25)"}}><span style={{fontSize:13,color:TK.grey}}>Your rank</span><span style={{fontSize:16,fontWeight:800,color:TK.orange}}>#{myRankLB}</span><span style={{fontSize:13,color:TK.grey}}>of {sortedLB.length}</span></div>}{role==="player"&&<p className="fi d3" style={{fontSize:12,color:TK.grey,marginTop:10,maxWidth:340,marginLeft:"auto",marginRight:"auto",lineHeight:1.5}}>Ranked by total points. Each correct answer earns up to 1,000 points — the faster you answer, the more you score.</p>}</div><div style={{marginTop:24}}><LBoard players={players} myId={role==="player"?pid:null}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
   }
 
   if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.orange}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false} myId={role==="player"?pid:null}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
