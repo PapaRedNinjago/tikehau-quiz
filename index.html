@@ -132,22 +132,36 @@ function fbGet(path){return db.ref(path).once("value").then(s=>s.val())}
 function fbOn(path,cb){db.ref(path).on("value",s=>cb(s.val()));return()=>db.ref(path).off()}
 function fbDel(path){return db.ref(path).remove()}
 
-// Questions live in Firebase (`questions/`) so they can be edited from the admin
-// page without redeploying. DEFAULT_Q seeds that node the first time the app runs
-// against an empty database; after that, Firebase is the source of truth.
-function useQuestions(){
-  const [questions,setQuestions]=useState(null);
-  const seeded=useRef(false);
-  useEffect(()=>fbOn("questions",qs=>{
-    const keys=qs?Object.keys(qs):[];
-    if(keys.length>0){
-      setQuestions(keys.sort((a,b)=>+a-+b).map(k=>qs[k]));
-    } else if(!seeded.current){
-      seeded.current=true;
-      fbSet("questions",Object.fromEntries(DEFAULT_Q.map((q,i)=>[i,q])));
+// Quizzes live in Firebase (`quizzes/{id}`) so they can be created/edited from the
+// admin page without redeploying, and a host can pick which one to run. The first
+// time the app runs against an empty database, this seeds a single quiz from
+// DEFAULT_Q (or migrates the old flat `questions/` node, if one exists from before
+// multi-quiz support) — after that, Firebase is the source of truth.
+function useQuizzes(){
+  const [quizzes,setQuizzes]=useState(null); // null=loading, else {id:{id,name,questions:[...]}}
+  const migrating=useRef(false);
+  useEffect(()=>fbOn("quizzes",qz=>{
+    const ids=qz?Object.keys(qz):[];
+    if(ids.length>0){
+      const norm={};
+      ids.forEach(id=>{
+        const quiz=qz[id]||{};
+        const qraw=quiz.questions;
+        const qkeys=qraw?Object.keys(qraw):[];
+        const qArr=qkeys.length>0?(Array.isArray(qraw)?qraw:qkeys.sort((a,b)=>+a-+b).map(k=>qraw[k])):[];
+        norm[id]={id,name:quiz.name||"Untitled Quiz",questions:qArr};
+      });
+      setQuizzes(norm);
+    } else if(!migrating.current){
+      migrating.current=true;
+      fbGet("questions").then(legacy=>{
+        const lkeys=legacy?Object.keys(legacy):[];
+        const qArr=lkeys.length>0?(Array.isArray(legacy)?legacy:lkeys.sort((a,b)=>+a-+b).map(k=>legacy[k])):DEFAULT_Q;
+        fbSet("quizzes/default",{name:"AI Quiz 2026",questions:Object.fromEntries(qArr.map((q,i)=>[i,q]))});
+      });
     }
   }),[]);
-  return questions;
+  return quizzes;
 }
 
 // ── UI ──
@@ -174,13 +188,19 @@ function Btn({children,onClick,disabled,outline}){return <button onClick={onClic
 function Wrap({children,w=640}){return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}}><div style={{width:"100%",maxWidth:w}}>{children}</div></div>}
 function TBar({tl,mx}){const p=(tl/mx)*100,cl=tl<=5?TK.bad:tl<=10?TK.orangeL:TK.orange;return <div style={{width:"100%",height:8,borderRadius:4,background:"rgba(27,20,100,.06)",overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",borderRadius:4,background:cl,transition:"width 1s linear"}}/></div>}
 function SCard({q}){const s=SRCS[q.st]||SRCS.bcg;return <div className="fi d5" style={{marginTop:16,borderRadius:14,overflow:"hidden",border:`1px solid ${s.color}25`}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 18px",background:`${s.color}12`}}><span style={{fontSize:18}}>{s.icon}</span><div style={{flex:1}}><div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:s.color}}>{s.label}</div><div style={{fontSize:12,color:TK.grey,marginTop:1}}>{q.sd}</div></div></div><div style={{padding:"10px 18px",borderBottom:`1px solid ${s.color}12`}}><div style={{fontSize:13,color:"#5A596E",lineHeight:1.5,fontStyle:"italic"}}>{q.s}</div></div><div style={{padding:"14px 18px",background:"rgba(27,20,100,.06)"}}><div style={{fontSize:15,color:TK.navy,lineHeight:1.6,fontWeight:500}}>{q.xt}</div></div></div>}
-function LBoard({players,showD=true}){
+function LBoard({players,showD=true,myId=null}){
   const sorted=Object.entries(players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
   const top3=sorted.slice(0,3);
   const rest=sorted.slice(3);
   const m=["🥇","🥈","🥉"];
   const podColors=[TK.orange,"#6B6A80","#A0785A"];
   const podSizes=[72,56,52];
+  const listRef=useRef(null);
+  const meRef=useRef(null);
+
+  useEffect(()=>{
+    if(meRef.current&&listRef.current)meRef.current.scrollIntoView({block:"center"});
+  },[]);
 
   return <div>
     {/* Podium for top 3 */}
@@ -189,13 +209,14 @@ function LBoard({players,showD=true}){
         const p=top3[rank];if(!p)return <div key={rank} style={{width:120}}/>;
         const av=AVATARS[p.avatar]||AVATARS[0];
         const isFirst=rank===0;
+        const isMe=myId&&p.id===myId;
         const delay=rank===0?.3:rank===1?.1:.5;
         return <div key={p.id} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,animation:`podiumRise .6s cubic-bezier(.22,1,.36,1) ${delay}s both`,width:isFirst?140:115}}>
           {isFirst&&<div style={{fontSize:28,animation:"crownBounce .5s cubic-bezier(.22,1,.36,1) .8s both"}}>👑</div>}
           <div style={{position:"relative"}}>
-            <div style={{width:podSizes[rank],height:podSizes[rank],borderRadius:podSizes[rank]*.3,background:av.bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 4px 20px ${av.bg}44`,border:isFirst?`3px solid ${TK.orange}`:"3px solid transparent"}}><img src={av.img} style={{width:podSizes[rank]*.75,height:podSizes[rank]*.75,objectFit:"contain"}}/></div>
+            <div style={{width:podSizes[rank],height:podSizes[rank],borderRadius:podSizes[rank]*.3,background:av.bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:isMe?`0 0 0 3px ${TK.ok}`:`0 4px 20px ${av.bg}44`,border:isFirst?`3px solid ${TK.orange}`:"3px solid transparent"}}><img src={av.img} style={{width:podSizes[rank]*.75,height:podSizes[rank]*.75,objectFit:"contain"}}/></div>
           </div>
-          <span style={{fontSize:isFirst?16:14,fontWeight:600,color:TK.navy,textAlign:"center"}}>{p.name}</span>
+          <span style={{fontSize:isFirst?16:14,fontWeight:600,color:isMe?TK.ok:TK.navy,textAlign:"center"}}>{p.name}{isMe?" (you)":""}</span>
           <div style={{animation:`countUp .4s ease ${delay+.3}s both`}}>
             <span style={{fontSize:isFirst?24:18,fontWeight:800,color:podColors[rank]}}>{p.score||0}</span>
             {showD&&p.delta>0&&<span style={{fontSize:12,fontWeight:600,color:TK.ok,marginLeft:6}}>+{p.delta}</span>}
@@ -211,20 +232,21 @@ function LBoard({players,showD=true}){
     </div>}
 
     {/* Remaining rows */}
-    <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:rest.length>15?"420px":"none",overflowY:rest.length>15?"auto":"visible",paddingRight:rest.length>15?4:0}}>
+    <div ref={listRef} style={{display:"flex",flexDirection:"column",gap:6,maxHeight:rest.length>15?"420px":"none",overflowY:rest.length>15?"auto":"visible",paddingRight:rest.length>15?4:0}}>
       {rest.map((p,i)=>{
         const av=AVATARS[p.avatar]||AVATARS[0];
         const rank=i+4;
+        const isMe=myId&&p.id===myId;
         const delay=Math.min(.8+i*.06,2.5);
-        return <div key={p.id} style={{
+        return <div key={p.id} ref={isMe?meRef:null} style={{
           display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,
-          background:i%2===0?"rgba(27,20,100,.02)":"transparent",
-          border:"1px solid rgba(27,20,100,.04)",
+          background:isMe?"rgba(52,211,153,.1)":(i%2===0?"rgba(27,20,100,.02)":"transparent"),
+          border:isMe?`1.5px solid ${TK.ok}`:"1px solid rgba(27,20,100,.04)",
           animation:`slideUp .4s cubic-bezier(.22,1,.36,1) ${delay}s both`,
         }}>
-          <span style={{width:28,textAlign:"center",fontSize:13,fontWeight:700,color:TK.grey}}>{rank}</span>
+          <span style={{width:28,textAlign:"center",fontSize:13,fontWeight:700,color:isMe?TK.ok:TK.grey}}>{rank}</span>
           <div style={{width:32,height:32,borderRadius:8,background:av.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src={av.img} style={{width:24,height:24,objectFit:"contain"}}/></div>
-          <span style={{flex:1,fontSize:14,fontWeight:500,color:TK.navy}}>{p.name}</span>
+          <span style={{flex:1,fontSize:14,fontWeight:isMe?700:500,color:isMe?TK.ok:TK.navy}}>{p.name}{isMe?" (you)":""}</span>
           {showD&&p.delta>0&&<span style={{fontSize:12,fontWeight:600,color:TK.ok,marginRight:6}}>+{p.delta}</span>}
           <span style={{fontSize:16,fontWeight:700,color:TK.orange,minWidth:50,textAlign:"right"}}>{p.score||0}</span>
         </div>
@@ -259,20 +281,32 @@ function PlayerOptions({options,colors,L,onPick,picked,disabled}){
 }
 
 function ReviewMode(){
-  const Q=useQuestions();
+  const quizzes=useQuizzes();
   const [rqi,setRqi]=useState(0);
   const [showAnswer,setShowAnswer]=useState(false);
+  const [selectedQuizId,setSelectedQuizId]=useState(()=>new URLSearchParams(window.location.search).get("quiz"));
   const L=["A","B","C","D"];
 
+  useEffect(()=>{
+    if(quizzes&&(!selectedQuizId||!quizzes[selectedQuizId])){
+      const ids=Object.keys(quizzes);
+      if(ids.length>0)setSelectedQuizId(ids[0]);
+    }
+  },[quizzes,selectedQuizId]);
+
+  const Q=(quizzes&&selectedQuizId&&quizzes[selectedQuizId])?quizzes[selectedQuizId].questions:[];
+
   const goPrev=()=>{if(rqi>0){setShowAnswer(false);setRqi(r=>r-1)}};
-  const goNext=()=>{if(Q&&rqi<Q.length-1){setShowAnswer(false);setRqi(r=>r+1)}};
+  const goNext=()=>{if(rqi<Q.length-1){setShowAnswer(false);setRqi(r=>r+1)}};
 
   useEffect(()=>{
-    const h=(e)=>{if(!Q)return;if(e.key==="ArrowLeft")goPrev();if(e.key==="ArrowRight")goNext();if(e.key===" "||e.key==="Enter"){e.preventDefault();setShowAnswer(v=>!v)}};
+    const h=(e)=>{if(!Q.length)return;if(e.key==="ArrowLeft")goPrev();if(e.key==="ArrowRight")goNext();if(e.key===" "||e.key==="Enter"){e.preventDefault();setShowAnswer(v=>!v)}};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   });
 
-  if(!Q)return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",alignItems:"center",justifyContent:"center"}}><p style={{color:TK.grey}}>Loading…</p></div>;
+  if(!quizzes)return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",alignItems:"center",justifyContent:"center"}}><p style={{color:TK.grey}}>Loading…</p></div>;
+
+  if(!Q.length)return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center"}}><p style={{color:TK.grey}}>This quiz has no questions yet.</p><a href="?" style={{fontSize:13,color:TK.grey}}>← Back to quiz</a></div></div>;
 
   const q=Q[Math.min(rqi,Q.length-1)];
 
@@ -281,6 +315,9 @@ function ReviewMode(){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <TKOLogo scale={.8}/>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {Object.keys(quizzes).length>1&&<select value={selectedQuizId} onChange={e=>{setSelectedQuizId(e.target.value);setRqi(0);setShowAnswer(false)}} style={{fontSize:13,fontWeight:600,color:TK.navy,padding:"5px 10px",borderRadius:6,border:"1px solid rgba(27,20,100,.15)",background:"#fff",outline:"none"}}>
+            {Object.values(quizzes).map(qz=><option key={qz.id} value={qz.id}>{qz.name}</option>)}
+          </select>}
           <span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>{q.cat}</span>
           <span style={{fontSize:14,color:TK.grey}}>Review Mode · {rqi+1}/{Q.length}</span>
         </div>
@@ -406,7 +443,9 @@ function AdminMode(){
   const [tab,setTab]=useState("results");
   const [results,setResults]=useState(null);
   const [openId,setOpenId]=useState(null);
-  const Q=useQuestions();
+  const quizzes=useQuizzes();
+  const [selectedQuizId,setSelectedQuizId]=useState(null);
+  const [draftQuizId,setDraftQuizId]=useState(null);
   const [draft,setDraft]=useState(null);
   const [dirty,setDirty]=useState(false);
   const [editIdx,setEditIdx]=useState(null);
@@ -419,8 +458,20 @@ function AdminMode(){
   },[unlocked]);
 
   useEffect(()=>{
-    if(draft===null&&Q)setDraft(Q.map(q=>({q:q.q||"",o:[...(q.o||["","","",""])],c:q.c??0,t:q.t||TSEC,cat:q.cat||"",ex:q.ex||"",xt:q.xt||"",s:q.s||"",sd:q.sd||"",st:q.st||"bcg"})));
-  },[Q,draft]);
+    if(quizzes&&(!selectedQuizId||!quizzes[selectedQuizId])){
+      const ids=Object.keys(quizzes);
+      if(ids.length>0)setSelectedQuizId(ids[0]);
+    }
+  },[quizzes,selectedQuizId]);
+
+  useEffect(()=>{
+    if(quizzes&&selectedQuizId&&quizzes[selectedQuizId]&&draftQuizId!==selectedQuizId){
+      const src=quizzes[selectedQuizId].questions;
+      setDraft(src.map(q=>({q:q.q||"",o:[...(q.o||["","","",""])],c:q.c??0,t:q.t||TSEC,cat:q.cat||"",ex:q.ex||"",xt:q.xt||"",s:q.s||"",sd:q.sd||"",st:q.st||"bcg"})));
+      setDraftQuizId(selectedQuizId);
+      setDirty(false);setEditIdx(null);setSaveMsg("");
+    }
+  },[quizzes,selectedQuizId,draftQuizId]);
 
   const tryUnlock=()=>{if(pass===ADMIN_PASSCODE)setUnlocked(true);else setErr("Incorrect passcode")};
 
@@ -455,8 +506,30 @@ function AdminMode(){
     }
     setSaveMsg("Saving…");
     const clean=draft.map(q=>({q:q.q.trim(),o:q.o.map(o=>String(o).trim()),c:Number(q.c),t:Number(q.t)||TSEC,cat:(q.cat||"").trim()||"General",ex:(q.ex||"").trim(),xt:(q.xt||"").trim(),s:(q.s||"").trim(),sd:(q.sd||"").trim(),st:(q.st||"").trim()||"bcg"}));
-    await fbSet("questions",Object.fromEntries(clean.map((q,i)=>[i,q])));
+    await fbSet(`quizzes/${selectedQuizId}/questions`,Object.fromEntries(clean.map((q,i)=>[i,q])));
     setDirty(false);setSaveMsg(`Saved ${clean.length} question${clean.length!==1?"s":""}.`);
+  };
+
+  const createQuiz=async()=>{
+    const name=window.prompt("Name for the new quiz:");
+    if(!name||!name.trim())return;
+    const id="q"+Date.now();
+    await fbSet(`quizzes/${id}`,{name:name.trim(),questions:{}});
+    setSelectedQuizId(id);
+  };
+  const renameQuiz=async()=>{
+    if(!selectedQuizId)return;
+    const current=quizzes[selectedQuizId]?.name||"";
+    const name=window.prompt("Rename quiz:",current);
+    if(!name||!name.trim()||name.trim()===current)return;
+    await fbSet(`quizzes/${selectedQuizId}/name`,name.trim());
+  };
+  const deleteQuiz=async()=>{
+    if(!selectedQuizId)return;
+    const qz=quizzes[selectedQuizId];
+    if(!window.confirm(`Delete the quiz "${qz?.name}" and all ${qz?.questions.length||0} of its questions? This cannot be undone.`))return;
+    await fbDel(`quizzes/${selectedQuizId}`);
+    setSelectedQuizId(null);setDraftQuizId(null);setDraft(null);
   };
 
   const downloadTemplate=()=>{
@@ -514,7 +587,7 @@ function AdminMode(){
             <div onClick={()=>setOpenId(isOpen?null:r.id)} style={{padding:"16px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",background:isOpen?"rgba(255,102,51,.06)":"#fff"}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:15,fontWeight:600,color:TK.navy}}>{new Date(r.endedAt).toLocaleString()}</div>
-                <div style={{fontSize:13,color:TK.grey,marginTop:2}}>Code {r.code} · {rplayers.length} player{rplayers.length!==1?"s":""} · {r.numQuestions} questions</div>
+                <div style={{fontSize:13,color:TK.grey,marginTop:2}}>{r.quizName?`${r.quizName} · `:""}Code {r.code} · {rplayers.length} player{rplayers.length!==1?"s":""} · {r.numQuestions} questions</div>
               </div>
               {winner&&<div style={{textAlign:"right"}}>
                 <div style={{fontSize:13,fontWeight:700,color:TK.orange}}>🏆 {winner.name}</div>
@@ -529,7 +602,17 @@ function AdminMode(){
     </div>}
 
     {tab==="questions"&&<div>
-      {draft===null?<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>:<>
+      <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",alignItems:"center",marginBottom:24,padding:"14px 16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)"}}>
+        <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".05em"}}>Quiz</label>
+        <select value={selectedQuizId||""} onChange={e=>setSelectedQuizId(e.target.value)} style={{fontSize:14,fontWeight:600,color:TK.navy,padding:"7px 12px",borderRadius:8,border:"1px solid rgba(27,20,100,.15)",background:"#fff",outline:"none"}}>
+          {Object.values(quizzes||{}).map(qz=><option key={qz.id} value={qz.id}>{qz.name} ({qz.questions.length})</option>)}
+        </select>
+        <button onClick={renameQuiz} disabled={!selectedQuizId} style={{background:"none",border:"none",color:TK.orange,fontSize:13,fontWeight:700,cursor:selectedQuizId?"pointer":"default",opacity:selectedQuizId?1:.4}}>Rename</button>
+        <button onClick={deleteQuiz} disabled={!selectedQuizId} style={{background:"none",border:"none",color:TK.bad,fontSize:13,fontWeight:700,cursor:selectedQuizId?"pointer":"default",opacity:selectedQuizId?1:.4}}>Delete</button>
+        <button onClick={createQuiz} style={{background:"none",border:"none",color:TK.navy,fontSize:13,fontWeight:700,cursor:"pointer"}}>+ New Quiz</button>
+      </div>
+      {!selectedQuizId?<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>{quizzes?"No quizzes yet — create one above.":"Loading…"}</p>:
+      draft===null||draftQuizId!==selectedQuizId?<p style={{textAlign:"center",color:TK.grey,fontStyle:"italic"}}>Loading…</p>:<>
         <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center",marginBottom:8}}>
           <Btn outline onClick={addQuestion}>+ Add Question</Btn>
           <Btn outline onClick={downloadTemplate}>⬇ Download Template</Btn>
@@ -588,7 +671,7 @@ function AdminMode(){
 }
 
 function App(){
-  const Q=useQuestions();
+  const quizzes=useQuizzes();
 
   // URL routing: ?host → host landing, ?review → review mode, ?admin → past results, default → player landing
   const params=new URLSearchParams(window.location.search);
@@ -614,6 +697,7 @@ function App(){
   const [joinCode,setJoinCode]=useState("");
   const [err,setErr]=useState("");
   const [qi,setQi]=useState(0);
+  const [selectedQuizId,setSelectedQuizId]=useState(null);
   const tRef=useRef(null);
   const unsubs=useRef([]);
   const qStart=useRef(0);
@@ -622,14 +706,24 @@ function App(){
   const stopT=()=>{if(tRef.current){clearInterval(tRef.current);tRef.current=null}};
   const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
   useEffect(()=>()=>cleanup(),[]);
+
+  // Default the host's quiz picker to the first available quiz once the catalog loads.
+  useEffect(()=>{
+    if(quizzes&&!selectedQuizId){
+      const ids=Object.keys(quizzes);
+      if(ids.length>0)setSelectedQuizId(ids[0]);
+    }
+  },[quizzes,selectedQuizId]);
+
   const nPlayers=Object.keys(players).length;
   const nAnswers=Object.keys(answers).length;
   const dist=[0,0,0,0];Object.values(answers).forEach(a=>{if(a.pick>=0&&a.pick<4)dist[a.pick]++});
 
   // Host
   const hostCreate=async()=>{
+    if(!selectedQuizId)return;
     const c=genCode();
-    await fbSet(`quiz/${c}/state`,{phase:"lobby",currentQ:0,startTime:0});
+    await fbSet(`quiz/${c}/state`,{phase:"lobby",currentQ:0,startTime:0,quizId:selectedQuizId});
     await fbSet(`quiz/${c}/players`,{});
     setCode(c);setRole("host");setPhase("lobby");
     unsubs.current.push(fbOn(`quiz/${c}/players`,p=>setPlayers(p||{})));
@@ -663,7 +757,7 @@ function App(){
     if(qi+1>=Q.length){
       await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});
       const archived=Object.fromEntries(Object.entries(players).map(([id,p])=>[id,{name:p.name,avatar:p.avatar,score:p.score||0}]));
-      await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,players:archived});
+      await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,quizName:activeQuiz?.name||"",players:archived});
       setPhase("final");
     }
     else hostStartQ(qi+1);
@@ -698,7 +792,9 @@ function App(){
       prevP.current=gp;
       if(gp==="question"){
         setQi(gState.currentQ);setMyPick(null);setSent(false);setPhase("question");
-        qStart.current=gState.startTime;setTl(qTime(Q[gState.currentQ]));
+        qStart.current=gState.startTime;
+        const myQuiz=gState.quizId&&quizzes?quizzes[gState.quizId]:null;
+        setTl(qTime(myQuiz&&myQuiz.questions[gState.currentQ]));
         stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
       }
       if(gp==="reveal"){stopT();setQi(gState.currentQ);setPhase("reveal")}
@@ -707,9 +803,14 @@ function App(){
     }
   },[gState,role]);
 
-  if(!Q)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
+  if(!quizzes)return <BrandBg><div style={{textAlign:"center"}}><TKOLogo/><p style={{color:"rgba(27,20,100,.45)",marginTop:24}}>Loading…</p></div></BrandBg>;
 
-  const question=Q[Math.min(qi,Q.length-1)];
+  // Host picks the quiz from the landing screen; a player inherits whichever quiz
+  // the host started the session with, via the synced game state.
+  const activeQuizId=urlMode==="host"?selectedQuizId:(gState?.quizId||null);
+  const activeQuiz=activeQuizId?quizzes[activeQuizId]:null;
+  const Q=activeQuiz?activeQuiz.questions:[];
+  const question=Q.length?Q[Math.min(qi,Q.length-1)]:null;
   const L=["A","B","C","D"],colors=[TK.bad,"#3B82F6",TK.orange,TK.ok];
 
   // ═══ SCREENS ═══
@@ -721,7 +822,19 @@ function App(){
         <h1 style={{fontSize:52,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase",letterSpacing:".02em"}}>AI Quiz</h1>
         <p style={{fontSize:14,fontWeight:600,color:"rgba(27,20,100,.35)",marginTop:12,letterSpacing:".1em",textTransform:"uppercase"}}>Host Dashboard</p>
       </div>
-      <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:40}}>
+      <div style={{marginTop:40,textAlign:"left",maxWidth:400,margin:"40px auto 0"}}>
+        <label style={{fontSize:12,fontWeight:600,color:"rgba(27,20,100,.5)",textTransform:"uppercase",letterSpacing:".08em",display:"block",marginBottom:10,textAlign:"center"}}>Select a Quiz</label>
+        {Object.keys(quizzes).length===0?<p style={{textAlign:"center",color:TK.grey,fontSize:14,fontStyle:"italic"}}>No quizzes yet — create one from the admin page.</p>:
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {Object.values(quizzes).map(qz=>
+            <button key={qz.id} onClick={()=>setSelectedQuizId(qz.id)} style={{textAlign:"left",padding:"14px 18px",borderRadius:10,border:selectedQuizId===qz.id?`2px solid ${TK.orange}`:"1.5px solid rgba(27,20,100,.12)",background:selectedQuizId===qz.id?"rgba(255,102,51,.06)":"#fff",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontWeight:600,color:TK.navy,fontSize:15}}>{qz.name}</span>
+              <span style={{fontSize:12,color:TK.grey,flexShrink:0,marginLeft:12}}>{qz.questions.length} question{qz.questions.length!==1?"s":""}</span>
+            </button>
+          )}
+        </div>}
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:28}}>
         {[{cat:"Geopolitics",l:"Geopolitics",c:"#E21B3C"},{cat:"Market",l:"Market",c:"#26890C"},{cat:"Tikehau",l:"Internal",c:TK.orange}].map((s,i)=>
           <div key={i} style={{padding:"16px 20px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",minWidth:100}}>
             <div style={{fontSize:28,fontWeight:800,color:s.c}}>{Q.filter(x=>x.cat===s.cat).length}</div>
@@ -729,9 +842,9 @@ function App(){
           </div>
         )}
       </div>
-      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:48,maxWidth:340,margin:"48px auto 0"}}>
-        <Btn onClick={hostCreate}>Start a Session</Btn>
-        <Btn outline onClick={()=>window.location.search="?review"}>Review Questions</Btn>
+      <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:36,maxWidth:340,margin:"36px auto 0"}}>
+        <Btn onClick={hostCreate} disabled={!selectedQuizId}>Start a Session</Btn>
+        <Btn outline onClick={()=>window.location.search=`?review&quiz=${selectedQuizId}`} disabled={!selectedQuizId}>Review Questions</Btn>
       </div>
     </div></BrandBg>
   );
@@ -772,7 +885,7 @@ function App(){
 
   if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}><span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(question)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>Reveal Answer</Btn></div></Wrap>);
 
-  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(pq)}/><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:14,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerSelect(i)} picked={myPick} disabled={sent||tl<=0}/>{myPick!==null&&!sent&&tl>0&&<div style={{marginTop:16,textAlign:"center"}}><Btn onClick={playerConfirm}>Confirm Answer</Btn></div>}{sent?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>:tl<=0?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:TK.badBg,border:`1px solid ${TK.bad}33`}}><span style={{fontSize:24}}>⏱</span><p style={{fontSize:14,color:TK.bad,fontWeight:600,margin:"6px 0 0"}}>Time's up!</p></div>:null}</Wrap>)}
+  if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(pq)}/><p style={{fontSize:11,color:TK.grey,textAlign:"center",marginTop:8}}>⚡ Faster correct answers score more points</p><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:10,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerSelect(i)} picked={myPick} disabled={sent||tl<=0}/>{myPick!==null&&!sent&&tl>0&&<div style={{marginTop:16,textAlign:"center"}}><Btn onClick={playerConfirm}>Confirm Answer</Btn></div>}{sent?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>Locked in — waiting for reveal</p></div>:tl<=0?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:TK.badBg,border:`1px solid ${TK.bad}33`}}><span style={{fontSize:24}}>⏱</span><p style={{fontSize:14,color:TK.bad,fontWeight:600,margin:"6px 0 0"}}>Time's up!</p></div>:null}</Wrap>)}
 
   if(phase==="reveal"&&role==="host")return(<Wrap w={1000}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{padding:"8px 14px",borderRadius:8,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",fontSize:13,color:TK.grey}}>👥 {nAnswers}/{nPlayers} answered</div><span style={{fontSize:12,fontWeight:600,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.orange}}>Reveal</span></div></div>
@@ -806,9 +919,13 @@ function App(){
 
   if(phase==="reveal"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi],ok=myPick===pq.c,me=players[pid];return(<Wrap w={440}><div style={{textAlign:"center",marginTop:20}}><div style={{fontSize:64,marginBottom:12}}>{ok?"🎉":myPick===null?"⏱":"😬"}</div><h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:ok?TK.ok:(myPick===null?TK.grey:TK.bad)}}>{ok?"Correct!":myPick===null?"Time's up":"Not quite"}</h2>{ok&&me&&<p style={{fontSize:18,fontWeight:700,color:TK.orange,marginTop:8}}>+{me.delta} pts</p>}<div style={{textAlign:"left",marginTop:16}}><div style={{padding:"14px 18px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)"}}><div style={{fontSize:14,color:TK.ok,fontWeight:600}}>Answer: {pq.o[pq.c]}</div><p style={{fontSize:13,color:TK.grey,marginTop:8,lineHeight:1.5}}>{pq.ex}</p></div><SCard q={pq}/></div><div style={{marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Waiting for leaderboard…</p></div></div></Wrap>)}
 
-  if(phase==="leaderboard")return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p></div><div style={{marginTop:24}}><LBoard players={players}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
+  if(phase==="leaderboard"){
+    const sortedLB=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
+    const myRankLB=role==="player"?sortedLB.findIndex(p=>p.id===pid)+1:0;
+    return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p>{role==="player"&&myRankLB>0&&<div className="fi d2" style={{display:"inline-flex",alignItems:"center",gap:8,marginTop:12,padding:"8px 18px",borderRadius:999,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.25)"}}><span style={{fontSize:13,color:TK.grey}}>Your rank</span><span style={{fontSize:16,fontWeight:800,color:TK.orange}}>#{myRankLB}</span><span style={{fontSize:13,color:TK.grey}}>of {sortedLB.length}</span></div>}</div><div style={{marginTop:24}}><LBoard players={players} myId={role==="player"?pid:null}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
+  }
 
-  if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.orange}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
+  if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.orange}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false} myId={role==="player"?pid:null}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
 
   return <Wrap><p style={{color:TK.grey,textAlign:"center"}}>Loading…</p></Wrap>;
 }
