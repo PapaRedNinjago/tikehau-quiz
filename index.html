@@ -840,9 +840,9 @@ function App(){
         </div>}
       </div>
       <div style={{display:"flex",justifyContent:"center",gap:20,marginTop:28}}>
-        {[{cat:"Geopolitics",l:"Geopolitics",c:"#E21B3C"},{cat:"Market",l:"Market",c:"#26890C"},{cat:"Tikehau",l:"Internal",c:TK.orange}].map((s,i)=>
+        {[{l:"Geopolitics",c:"#E21B3C",match:x=>x.cat==="Geopolitics"},{l:"Market",c:"#26890C",match:x=>x.cat==="Market"},{l:"Internal",c:TK.orange,match:x=>x.cat!=="Geopolitics"&&x.cat!=="Market"}].map((s,i)=>
           <div key={i} style={{padding:"16px 20px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)",minWidth:100}}>
-            <div style={{fontSize:28,fontWeight:800,color:s.c}}>{Q.filter(x=>x.cat===s.cat).length}</div>
+            <div style={{fontSize:28,fontWeight:800,color:s.c}}>{Q.filter(s.match).length}</div>
             <div style={{fontSize:12,color:"rgba(27,20,100,.4)",marginTop:3}}>{s.l}</div>
           </div>
         )}
