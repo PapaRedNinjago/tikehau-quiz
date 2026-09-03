@@ -127,7 +127,7 @@ const TSEC=20,TLONG=30,MAXP=1000;
 function qTime(q){return (q&&q.t)||TSEC}
 
 const CLOSING_MSGS=[
-  {title:"AI is reshaping our world",body:"AI is fundamentally changing the way businesses compete and create value. Our strategy is to remain sovereign, flexible and independent from any single LLM provider."},
+  {title:"",body:"AI is fundamentally changing the way businesses compete and create value. Our strategy is to remain sovereign, flexible and independent from any single LLM provider."},
   {title:"We must adapt how we work",body:"AI will transform jobs, skills and organisational models. We must embrace this shift—and we have put in place the organisation, governance and capabilities needed to adapt successfully."},
   {title:"Turn AI into a sales advantage",body:"The opportunity starts today: use the AI tools already available to save time, improve productivity and manage LP and prospect relationships more effectively."}
 ];
@@ -762,7 +762,7 @@ function App(){
     setPlayers(p);setPhase("reveal");
   };
   const hostLB=async()=>{await fbSet(`quiz/${code}/state`,{phase:"leaderboard",currentQ:qi});setPhase("leaderboard")};
-  const hostNext=async()=>{
+  const hostRevealNext=async()=>{
     if(qi+1>=Q.length){
       const archived=Object.fromEntries(Object.entries(players).map(([id,p])=>[id,{name:p.name,avatar:p.avatar,score:p.score||0}]));
       await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,quizName:activeQuiz?.name||"",players:archived});
@@ -770,12 +770,18 @@ function App(){
       await fbSet(`quiz/${code}/state`,{phase:"closing",currentQ:qi,msgStep:0});
       setPhase("closing");
     }
+    else hostLB();
+  };
+  const hostNext=async()=>{
+    if(qi+1>=Q.length){
+      await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});
+      setPhase("final");
+    }
     else hostStartQ(qi+1);
   };
   const hostClosingNext=async()=>{
     if(closingStep>=CLOSING_MSGS.length-1){
-      await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});
-      setPhase("final");
+      hostLB();
     }else{
       const next=closingStep+1;
       setClosingStep(next);
@@ -936,22 +942,22 @@ function App(){
           <div style={{marginTop:10,fontSize:14,lineHeight:1.6,color:"#5A596E"}}>{question.ex}</div>
         </div>
         <div className="slide-r sr3"><SCard q={question}/></div>
-        <div className="slide-r sr4" style={{textAlign:"center",marginTop:20}}><Btn onClick={hostLB}>Show Leaderboard →</Btn></div>
+        <div className="slide-r sr4" style={{textAlign:"center",marginTop:20}}><Btn onClick={hostRevealNext}>{qi+1>=Q.length?"Continue →":"Show Leaderboard →"}</Btn></div>
       </div>
     </div>
   </Wrap>);
 
-  if(phase==="reveal"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi],ok=myPick===pq.c,me=players[pid];return(<Wrap w={440}><div style={{textAlign:"center",marginTop:20}}><div style={{fontSize:64,marginBottom:12}}>{ok?"🎉":myPick===null?"⏱":"😬"}</div><h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:ok?TK.ok:(myPick===null?TK.grey:TK.bad)}}>{ok?"Correct!":myPick===null?"Time's up":"Not quite"}</h2>{ok&&me&&<p style={{fontSize:18,fontWeight:700,color:TK.orange,marginTop:8}}>+{me.delta} pts</p>}<div style={{textAlign:"left",marginTop:16}}><div style={{padding:"14px 18px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)"}}><div style={{fontSize:14,color:TK.ok,fontWeight:600}}>Answer: {pq.o[pq.c]}</div><p style={{fontSize:13,color:TK.grey,marginTop:8,lineHeight:1.5}}>{pq.ex}</p></div><SCard q={pq}/></div><div style={{marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Waiting for leaderboard…</p></div></div></Wrap>)}
+  if(phase==="reveal"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi],ok=myPick===pq.c,me=players[pid];return(<Wrap w={440}><div style={{textAlign:"center",marginTop:20}}><div style={{fontSize:64,marginBottom:12}}>{ok?"🎉":myPick===null?"⏱":"😬"}</div><h2 style={{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:ok?TK.ok:(myPick===null?TK.grey:TK.bad)}}>{ok?"Correct!":myPick===null?"Time's up":"Not quite"}</h2>{ok&&me&&<p style={{fontSize:18,fontWeight:700,color:TK.orange,marginTop:8}}>+{me.delta} pts</p>}<div style={{textAlign:"left",marginTop:16}}><div style={{padding:"14px 18px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)"}}><div style={{fontSize:14,color:TK.ok,fontWeight:600}}>Answer: {pq.o[pq.c]}</div><p style={{fontSize:13,color:TK.grey,marginTop:8,lineHeight:1.5}}>{pq.ex}</p></div><SCard q={pq}/></div><div style={{marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Waiting for the host…</p></div></div></Wrap>)}
 
   if(phase==="leaderboard"){
     const sortedLB=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));
     const myRankLB=role==="player"?sortedLB.findIndex(p=>p.id===pid)+1:0;
-    return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p>{role==="player"&&myRankLB>0&&<div className="fi d2" style={{display:"inline-flex",alignItems:"center",gap:8,marginTop:12,padding:"8px 18px",borderRadius:999,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.25)"}}><span style={{fontSize:13,color:TK.grey}}>Your rank</span><span style={{fontSize:16,fontWeight:800,color:TK.orange}}>#{myRankLB}</span><span style={{fontSize:13,color:TK.grey}}>of {sortedLB.length}</span></div>}{role==="player"&&<p className="fi d3" style={{fontSize:12,color:TK.grey,marginTop:10,maxWidth:340,marginLeft:"auto",marginRight:"auto",lineHeight:1.5}}>Ranked by total points. Each correct answer earns up to 1,000 points — the faster you answer, the more you score.</p>}</div><div style={{marginTop:24}}><LBoard players={players} myId={role==="player"?pid:null}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Continue →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
+    return(<Wrap w={700}><div style={{textAlign:"center"}}><Logo size={24}/><h2 className="fi" style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:24,color:TK.navy}}>Leaderboard</h2><p className="fi d1" style={{fontSize:13,color:TK.grey}}>After question {qi+1} of {Q.length} · {Object.keys(players).length} players</p>{role==="player"&&myRankLB>0&&<div className="fi d2" style={{display:"inline-flex",alignItems:"center",gap:8,marginTop:12,padding:"8px 18px",borderRadius:999,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.25)"}}><span style={{fontSize:13,color:TK.grey}}>Your rank</span><span style={{fontSize:16,fontWeight:800,color:TK.orange}}>#{myRankLB}</span><span style={{fontSize:13,color:TK.grey}}>of {sortedLB.length}</span></div>}{role==="player"&&<p className="fi d3" style={{fontSize:12,color:TK.grey,marginTop:10,maxWidth:340,marginLeft:"auto",marginRight:"auto",lineHeight:1.5}}>Ranked by total points. Each correct answer earns up to 1,000 points — the faster you answer, the more you score.</p>}</div><div style={{marginTop:24}}><LBoard players={players} myId={role==="player"?pid:null}/></div>{role==="host"&&<div className="fi d5" style={{textAlign:"center",marginTop:28}}><Btn onClick={hostNext}>{qi+1>=Q.length?"Final Results →":"Next Question →"}</Btn></div>}{role==="player"&&qi+1<Q.length&&<div style={{textAlign:"center",marginTop:24}}><div className="spinner"/><p style={{color:TK.grey,fontSize:13,marginTop:8}}>Next question…</p></div>}</Wrap>);
   }
 
-  if(phase==="closing"&&role==="host")return(<Wrap w={640}><div key={closingStep} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===closingStep?24:8,height:8,borderRadius:4,background:i<=closingStep?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div><div style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".1em",marginTop:16}}>Message {closingStep+1} of {CLOSING_MSGS.length}</div><h2 style={{fontSize:30,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:16,lineHeight:1.3}}>{CLOSING_MSGS[closingStep].title}</h2><p style={{fontSize:16,color:"#5A596E",lineHeight:1.7,marginTop:18,maxWidth:520,marginLeft:"auto",marginRight:"auto"}}>{CLOSING_MSGS[closingStep].body}</p><div style={{marginTop:36}}><Btn onClick={hostClosingNext}>{closingStep>=CLOSING_MSGS.length-1?"See Final Results →":"Next →"}</Btn></div></div></Wrap>);
+  if(phase==="closing"&&role==="host")return(<Wrap w={640}><div key={closingStep} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===closingStep?24:8,height:8,borderRadius:4,background:i<=closingStep?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div><div style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".1em",marginTop:16}}>Message {closingStep+1} of {CLOSING_MSGS.length}</div>{CLOSING_MSGS[closingStep].title&&<h2 style={{fontSize:30,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:16,lineHeight:1.3}}>{CLOSING_MSGS[closingStep].title}</h2>}<p style={CLOSING_MSGS[closingStep].title?{fontSize:16,color:"#5A596E",lineHeight:1.7,marginTop:18,maxWidth:520,marginLeft:"auto",marginRight:"auto"}:{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,lineHeight:1.5,marginTop:22,maxWidth:520,marginLeft:"auto",marginRight:"auto"}}>{CLOSING_MSGS[closingStep].body}</p><div style={{marginTop:36}}><Btn onClick={hostClosingNext}>{closingStep>=CLOSING_MSGS.length-1?"See Final Results →":"Next →"}</Btn></div></div></Wrap>);
 
-  if(phase==="closing"&&role==="player"){const step=gState?.msgStep??0;return(<Wrap w={480}><div key={step} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:4,background:i<=step?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div><h2 style={{fontSize:24,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:20,lineHeight:1.3}}>{CLOSING_MSGS[step].title}</h2><p style={{fontSize:15,color:"#5A596E",lineHeight:1.7,marginTop:14}}>{CLOSING_MSGS[step].body}</p></div></Wrap>)}
+  if(phase==="closing"&&role==="player"){const step=gState?.msgStep??0;return(<Wrap w={480}><div key={step} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:4,background:i<=step?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div>{CLOSING_MSGS[step].title&&<h2 style={{fontSize:24,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:20,lineHeight:1.3}}>{CLOSING_MSGS[step].title}</h2>}<p style={CLOSING_MSGS[step].title?{fontSize:15,color:"#5A596E",lineHeight:1.7,marginTop:14}:{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,lineHeight:1.5,marginTop:20}}>{CLOSING_MSGS[step].body}</p></div></Wrap>)}
 
   if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.orange}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false} myId={role==="player"?pid:null}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
 
