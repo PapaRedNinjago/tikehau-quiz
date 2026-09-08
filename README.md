@@ -2,7 +2,7 @@
 
 Interactive multiplayer quiz for seminars: **AI & The Changing World.**
 
-24 questions across 3 sections: Geopolitics (8), Market Knowledge (10), and Internal (6).
+20 questions across 2 sections: Geopolitics (7) and Market Knowledge (13). Add your own questions via the admin panel (`/?admin`) — including an "Internal" category for anything specific to your organization.
 
 ## Three modes via URL
 
@@ -10,7 +10,7 @@ Interactive multiplayer quiz for seminars: **AI & The Changing World.**
 |---|---|---|
 | `/` | **Player** | Participants on their phones — join with session code, name, avatar |
 | `/?host` | **Host** | Presenter on projected screen — start session or review questions |
-| `/?review` | **Review** | Prep mode — browse all 24 questions with answer reveal |
+| `/?review` | **Review** | Prep mode — browse all questions with answer reveal |
 
 ## How it works
 
@@ -29,7 +29,7 @@ Up to 1,000 points per correct answer, weighted by speed. Wrong or unanswered = 
 
 ## Review mode
 
-Open `/?review` to preview all 24 questions. Each question shows:
+Open `/?review` to preview all questions. Each question shows:
 
 - **Left:** question text, 4 colored answer options, themed illustration
 - **Right:** locked panel → click "Show Answer" (or press spacebar) to reveal the correct answer, explanation, and full source citation
@@ -56,7 +56,7 @@ The quiz uses Firebase Realtime Database (free tier) for real-time sync across d
 }
 ```
 
-The Firebase config is already embedded in `index.html`.
+5. In `index.html`, find the `firebase.initializeApp({...})` block near the top of the script and replace the placeholder values with your project's config (**Project Settings → General → Your apps → SDK setup and configuration**).
 
 ### GitHub Pages
 
@@ -93,7 +93,6 @@ Single `index.html` file — no build step, no dependencies to install.
 - Firebase Realtime Database compat SDK (CDN)
 - Babel standalone for JSX (CDN)
 - Libre Franklin font (Google Fonts)
-- Logo embedded as base64
 
 ## Brand
 
