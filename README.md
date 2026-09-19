@@ -4,6 +4,8 @@ Interactive multiplayer quiz for seminars: **AI & The Changing World.**
 
 20 questions across 2 sections: Geopolitics (7) and Market Knowledge (13). Add your own questions via the admin panel (`/?admin`) — including an "Internal" category for anything specific to your organization.
 
+Each question is either a scored **Quiz** question or an opinion-gathering **Poll** — see [Polls](#polls) below.
+
 ## Three modes via URL
 
 | URL | Mode | Who uses it |
@@ -27,12 +29,23 @@ Interactive multiplayer quiz for seminars: **AI & The Changing World.**
 
 Up to 1,000 points per correct answer, weighted by speed. Wrong or unanswered = 0.
 
+## Polls
+
+A question can be marked **Poll** instead of **Quiz** in the admin panel (`/?admin` → Edit Questions → open a question → Type toggle). Polls are for gathering opinion rather than testing knowledge:
+
+- Every option is valid — there's no correct answer, no score, and no leaderboard impact.
+- Players still pick one of 4 options and submit, exactly like a quiz question.
+- The host's "Reveal" step becomes **Show Results**: a live bar chart of how the room voted (count + %), with the leading option highlighted in orange instead of green. Players see the same results on their own screen.
+- Since nothing changes on the leaderboard, the host flow skips straight to the next question instead of showing a leaderboard screen.
+- An optional "takeaway" line (the same field used for a quiz's short explanation) can be shown after the results close.
+- The Excel template/upload has a `Type` column (`Quiz` / `Poll`) — leave `Correct (A-D)` blank for poll rows.
+
 ## Review mode
 
 Open `/?review` to preview all questions. Each question shows:
 
 - **Left:** question text, 4 colored answer options, themed illustration
-- **Right:** locked panel → click "Show Answer" (or press spacebar) to reveal the correct answer, explanation, and full source citation
+- **Right:** locked panel → click "Show Answer" (or press spacebar) to reveal the correct answer, explanation, and full source citation. For a poll question, this instead shows "Show Notes" and a reminder that there's no correct answer, plus the optional takeaway text.
 
 Navigate with Prev/Next buttons or ← → arrow keys.
 
