@@ -81,7 +81,15 @@ const QIMG=[
 {e:"⚠️✅",bg:"#EF4444"},{e:"🏅📋",bg:"#FF6633"},{e:"💡🔀",bg:"#06B6D4"},{e:"🎯💯",bg:"#FF6633"},
 ];
 
-function QImg({qi,size=120}){const im=QIMG[qi]||QIMG[0];return <div style={{width:size,height:size,borderRadius:20,background:`${im.bg}20`,border:`1px solid ${im.bg}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.35,gap:4,flexShrink:0}}>{im.e}</div>}
+// QIMG is a fixed array indexed by raw question position, shared by every quiz — fine
+// for the AI seminar it was built for, wrong for anything else (e.g. a medical-society
+// poll landing on the same positions would get the AI quiz's dollar-sign/robot icons).
+// A question can set its own `img` (a plain emoji string) to override that lookup.
+function QImg({qi,q,size=120}){
+  if(q&&q.img)return <div style={{width:size,height:size,borderRadius:20,background:"rgba(27,20,100,.05)",border:"1px solid rgba(27,20,100,.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.4,flexShrink:0}}>{q.img}</div>;
+  const im=QIMG[qi]||QIMG[0];
+  return <div style={{width:size,height:size,borderRadius:20,background:`${im.bg}20`,border:`1px solid ${im.bg}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.35,gap:4,flexShrink:0}}>{im.e}</div>;
+}
 
 function LiveCounter({answered,total}){
   const pct=total>0?Math.round((answered/total)*100):0;
@@ -353,7 +361,7 @@ function ReviewMode(){
           <div style={{background:"#fff",borderRadius:16,padding:24,border:"1px solid rgba(27,20,100,.08)"}}>
             <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:20}}>
               <div style={{flex:1}}><h2 style={{fontSize:22,fontWeight:500,lineHeight:1.45,fontFamily:"Georgia,serif",color:TK.navy}}>{q.q}</h2></div>
-              <QImg qi={rqi} size={80}/>
+              <QImg qi={rqi} q={q} size={80}/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {q.o.map((o,i)=>{
@@ -421,7 +429,7 @@ const XLSX_HEADERS=["Type","Question","Option A","Option B","Option C","Option D
 // live distribution instead of a correct/incorrect reveal). isPoll() is the single
 // source of truth so older saved questions with no `type` field still behave as quiz.
 function isPoll(q){return q&&q.type==="poll"}
-function blankQuestion(){return {q:"",type:"quiz",o:["","","",""],c:0,t:TSEC,cat:"",ex:"",xt:"",s:"",sd:"",st:"bcg"}}
+function blankQuestion(){return {q:"",type:"quiz",o:["","","",""],c:0,t:TSEC,cat:"",img:"",ex:"",xt:"",s:"",sd:"",st:"bcg"}}
 
 function questionToRow(q){
   return {
@@ -451,10 +459,14 @@ function rowToQuestion(row){
   const letterIdx="ABCD".indexOf(correctRaw[0]);
   const numIdx=Number(correctRaw);
   const c=letterIdx>=0?letterIdx:(numIdx>=1&&numIdx<=4?numIdx-1:0);
+  let o=[get("optiona"),get("optionb"),get("optionc"),get("optiond")];
+  // A poll can have 2-4 options — trailing blank cells in the sheet just mean "unused",
+  // not "invalid." A quiz keeps all 4 slots (blank ones are caught by validateQuestion).
+  if(type==="poll")o=o.filter(x=>x.trim()!=="");
   return {
     q:get("question"),
     type,
-    o:[get("optiona"),get("optionb"),get("optionc"),get("optiond")],
+    o,
     c,
     t:Number(get("timersec")||get("timer"))||TSEC,
     cat:get("category"),
@@ -468,8 +480,12 @@ function rowToQuestion(row){
 
 function validateQuestion(q){
   if(!q.q||!q.q.trim())return "question text is required";
+  if(isPoll(q)){
+    if(!Array.isArray(q.o)||q.o.length<2||q.o.length>4||q.o.some(o=>!o||!String(o).trim()))return "polls need between 2 and 4 filled-in options";
+    return null;
+  }
   if(!Array.isArray(q.o)||q.o.length!==4||q.o.some(o=>!o||!String(o).trim()))return "all 4 options are required";
-  if(!isPoll(q)&&!(q.c>=0&&q.c<=3))return "correct answer must be A, B, C or D";
+  if(!(q.c>=0&&q.c<=3))return "correct answer must be A, B, C or D";
   return null;
 }
 
@@ -504,7 +520,7 @@ function AdminMode(){
   useEffect(()=>{
     if(quizzes&&selectedQuizId&&quizzes[selectedQuizId]&&draftQuizId!==selectedQuizId){
       const src=quizzes[selectedQuizId].questions;
-      setDraft(src.map(q=>({q:q.q||"",type:isPoll(q)?"poll":"quiz",o:[...(q.o||["","","",""])],c:q.c??0,t:q.t||TSEC,cat:q.cat||"",ex:q.ex||"",xt:q.xt||"",s:q.s||"",sd:q.sd||"",st:q.st||"bcg"})));
+      setDraft(src.map(q=>({q:q.q||"",type:isPoll(q)?"poll":"quiz",o:[...(q.o||["","","",""])],c:q.c??0,t:q.t||TSEC,cat:q.cat||"",img:q.img||"",ex:q.ex||"",xt:q.xt||"",s:q.s||"",sd:q.sd||"",st:q.st||"bcg"})));
       setDraftQuizId(selectedQuizId);
       setDirty(false);setEditIdx(null);setSaveMsg("");
     }
@@ -533,6 +549,12 @@ function AdminMode(){
 
   const updateQ=(idx,field,value)=>{setDraft(d=>d.map((q,i)=>i===idx?{...q,[field]:value}:q));setDirty(true);setSaveMsg("")};
   const updateOpt=(idx,oi,value)=>{setDraft(d=>d.map((q,i)=>i===idx?{...q,o:q.o.map((o,j)=>j===oi?value:o)}:q));setDirty(true);setSaveMsg("")};
+  // Polls can have 2-4 options; quiz stays fixed at exactly 4 (A-D scoring/lettering
+  // depends on it). Switching a question to "quiz" pads it back up to 4 slots so the
+  // fixed A-D editor below always has something to show.
+  const setType=(idx,type)=>{setDraft(d=>d.map((q,i)=>{if(i!==idx)return q;let o=q.o;if(type==="quiz"&&o.length<4)o=[...o,...Array(4-o.length).fill("")];return {...q,type,o}}));setDirty(true);setSaveMsg("")};
+  const addOption=idx=>{setDraft(d=>d.map((q,i)=>i===idx&&q.o.length<4?{...q,o:[...q.o,""]}:q));setDirty(true);setSaveMsg("")};
+  const removeOption=(idx,oi)=>{setDraft(d=>d.map((q,i)=>i===idx&&q.o.length>2?{...q,o:q.o.filter((_,j)=>j!==oi)}:q));setDirty(true);setSaveMsg("")};
   const addQuestion=()=>{setDraft(d=>[...d,blankQuestion()]);setEditIdx(draft.length);setDirty(true);setSaveMsg("")};
   const deleteQuestion=idx=>{if(!window.confirm("Delete this question?"))return;setDraft(d=>d.filter((_,i)=>i!==idx));if(editIdx===idx)setEditIdx(null);setDirty(true);setSaveMsg("")};
 
@@ -542,7 +564,7 @@ function AdminMode(){
       if(e){setSaveMsg(`Question ${i+1}: ${e}`);return}
     }
     setSaveMsg("Saving…");
-    const clean=draft.map(q=>({q:q.q.trim(),type:q.type==="poll"?"poll":"quiz",o:q.o.map(o=>String(o).trim()),c:Number(q.c),t:Number(q.t)||TSEC,cat:(q.cat||"").trim()||"General",ex:(q.ex||"").trim(),xt:(q.xt||"").trim(),s:(q.s||"").trim(),sd:(q.sd||"").trim(),st:(q.st||"").trim()||"bcg"}));
+    const clean=draft.map(q=>({q:q.q.trim(),type:q.type==="poll"?"poll":"quiz",o:q.o.map(o=>String(o).trim()),c:Number(q.c),t:Number(q.t)||TSEC,cat:(q.cat||"").trim()||"General",img:(q.img||"").trim(),ex:(q.ex||"").trim(),xt:(q.xt||"").trim(),s:(q.s||"").trim(),sd:(q.sd||"").trim(),st:(q.st||"").trim()||"bcg"}));
     await fbSet(`quizzes/${selectedQuizId}/questions`,Object.fromEntries(clean.map((q,i)=>[i,q])));
     setDirty(false);setSaveMsg(`Saved ${clean.length} question${clean.length!==1?"s":""}.`);
   };
@@ -679,26 +701,37 @@ function AdminMode(){
                 <div>
                   <label style={fieldLabel}>Type</label>
                   <div style={{display:"flex",gap:8}}>
-                    <button onClick={()=>updateQ(idx,"type","quiz")} style={{flex:1,padding:"8px 12px",borderRadius:8,border:!qIsPoll?`1.5px solid ${TK.orange}`:"1px solid rgba(27,20,100,.12)",background:!qIsPoll?"rgba(255,102,51,.08)":"#fff",color:!qIsPoll?TK.orange:TK.grey,fontWeight:700,fontSize:13,cursor:"pointer"}}>🏆 Quiz — scored, one correct answer</button>
-                    <button onClick={()=>updateQ(idx,"type","poll")} style={{flex:1,padding:"8px 12px",borderRadius:8,border:qIsPoll?`1.5px solid ${TK.orange}`:"1px solid rgba(27,20,100,.12)",background:qIsPoll?"rgba(255,102,51,.08)":"#fff",color:qIsPoll?TK.orange:TK.grey,fontWeight:700,fontSize:13,cursor:"pointer"}}>📊 Poll — opinion, no correct answer</button>
+                    <button onClick={()=>setType(idx,"quiz")} style={{flex:1,padding:"8px 12px",borderRadius:8,border:!qIsPoll?`1.5px solid ${TK.orange}`:"1px solid rgba(27,20,100,.12)",background:!qIsPoll?"rgba(255,102,51,.08)":"#fff",color:!qIsPoll?TK.orange:TK.grey,fontWeight:700,fontSize:13,cursor:"pointer"}}>🏆 Quiz — scored, one correct answer</button>
+                    <button onClick={()=>setType(idx,"poll")} style={{flex:1,padding:"8px 12px",borderRadius:8,border:qIsPoll?`1.5px solid ${TK.orange}`:"1px solid rgba(27,20,100,.12)",background:qIsPoll?"rgba(255,102,51,.08)":"#fff",color:qIsPoll?TK.orange:TK.grey,fontWeight:700,fontSize:13,cursor:"pointer"}}>📊 Poll — opinion, no correct answer</button>
                   </div>
                 </div>
                 <div>
                   <label style={fieldLabel}>Question</label>
                   <textarea value={q.q} onChange={e=>updateQ(idx,"q",e.target.value)} rows={2} style={fieldInput}/>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {qIsPoll?<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {q.o.map((o,oi)=>
+                    <div key={oi} style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:12,fontWeight:700,color:TK.grey,width:14,flexShrink:0}}>{"ABCD"[oi]}</span>
+                      <input value={o} onChange={e=>updateOpt(idx,oi,e.target.value)} placeholder={`Option ${"ABCD"[oi]}`} style={{...fieldInput,flex:1}}/>
+                      <button onClick={()=>removeOption(idx,oi)} disabled={q.o.length<=2} style={{background:"none",border:"none",color:TK.grey,fontSize:16,cursor:q.o.length<=2?"default":"pointer",opacity:q.o.length<=2?.3:1,flexShrink:0}} title="Remove option">✕</button>
+                    </div>
+                  )}
+                  <button onClick={()=>addOption(idx)} disabled={q.o.length>=4} style={{alignSelf:"flex-start",background:"none",border:"1px dashed rgba(27,20,100,.25)",borderRadius:8,padding:"6px 12px",color:TK.orange,fontSize:12,fontWeight:700,cursor:q.o.length>=4?"default":"pointer",opacity:q.o.length>=4?.4:1}}>+ Add option ({q.o.length}/4)</button>
+                </div>
+                :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   {[0,1,2,3].map(oi=>
                     <div key={oi} style={{display:"flex",alignItems:"center",gap:8}}>
-                      {!qIsPoll&&<input type="radio" name={`correct-${idx}`} checked={q.c===oi} onChange={()=>updateQ(idx,"c",oi)} title="Correct answer"/>}
+                      <input type="radio" name={`correct-${idx}`} checked={q.c===oi} onChange={()=>updateQ(idx,"c",oi)} title="Correct answer"/>
                       <span style={{fontSize:12,fontWeight:700,color:TK.grey,width:14,flexShrink:0}}>{"ABCD"[oi]}</span>
                       <input value={q.o[oi]} onChange={e=>updateOpt(idx,oi,e.target.value)} placeholder={`Option ${"ABCD"[oi]}`} style={{...fieldInput,flex:1}}/>
                     </div>
                   )}
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 120px",gap:10}}>
+                </div>}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px",gap:10}}>
                   <div><label style={fieldLabel}>Category</label><input value={q.cat} onChange={e=>updateQ(idx,"cat",e.target.value)} style={fieldInput}/></div>
                   <div><label style={fieldLabel}>Timer (sec)</label><input type="number" min="5" value={q.t} onChange={e=>updateQ(idx,"t",e.target.value)} style={fieldInput}/></div>
+                  <div><label style={fieldLabel}>Illustration</label><input value={q.img} onChange={e=>updateQ(idx,"img",e.target.value)} placeholder="🩺" style={fieldInput}/></div>
                 </div>
                 <div><label style={fieldLabel}>{qIsPoll?"Takeaway to reveal after voting (optional)":"Short explanation"}</label><input value={q.ex} onChange={e=>updateQ(idx,"ex",e.target.value)} style={fieldInput}/></div>
                 {!qIsPoll&&<>
@@ -809,11 +842,19 @@ function App(){
   const hostLB=async()=>{await fbSet(`quiz/${code}/state`,{phase:"leaderboard",currentQ:qi});setPhase("leaderboard")};
   const hostRevealNext=async()=>{
     if(qi+1>=Q.length){
-      const archived=Object.fromEntries(Object.entries(players).map(([id,p])=>[id,{name:p.name,avatar:p.avatar,score:p.score||0}]));
-      await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,quizName:activeQuiz?.name||"",players:archived});
-      setClosingStep(0);
-      await fbSet(`quiz/${code}/state`,{phase:"closing",currentQ:qi,msgStep:0});
-      setPhase("closing");
+      // An all-poll quiz has no scores and nothing to celebrate — the generic closing
+      // slides (written for the AI seminar) and a trophy podium of all-zero scores
+      // would be actively wrong here, so skip straight to a neutral thank-you screen.
+      if(Q.every(isPoll)){
+        await fbSet(`quiz/${code}/state`,{phase:"final",currentQ:qi});
+        setPhase("final");
+      } else {
+        const archived=Object.fromEntries(Object.entries(players).map(([id,p])=>[id,{name:p.name,avatar:p.avatar,score:p.score||0}]));
+        await fbSet(`results/${code}_${Date.now()}`,{code,endedAt:Date.now(),numQuestions:Q.length,quizName:activeQuiz?.name||"",players:archived});
+        setClosingStep(0);
+        await fbSet(`quiz/${code}/state`,{phase:"closing",currentQ:qi,msgStep:0});
+        setPhase("closing");
+      }
     }
     // Polls don't change anyone's score, so there's nothing to show on a leaderboard — skip straight to the next question.
     else if(isPoll(Q[qi]))hostStartQ(qi+1);
@@ -960,7 +1001,7 @@ function App(){
 
   if(phase==="lobby"&&role==="player")return(<Wrap w={440}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{marginTop:40}}><Av i={avIdx} size={64}/></div><h2 style={{fontSize:22,fontWeight:400,fontFamily:"Georgia,serif",marginTop:16}}>{name}</h2><p style={{color:TK.grey,fontSize:14,marginTop:4}}>Session <span style={{color:TK.orange,fontWeight:700}}>{code}</span></p><div style={{marginTop:32,padding:"20px",borderRadius:14,background:"rgba(27,20,100,.02)",border:"1px solid rgba(27,20,100,.08)"}}><div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>{Object.values(players).map((p,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,background:"rgba(27,20,100,.04)"}}><span style={{fontSize:16,lineHeight:1}}>{AVATARS[p.avatar]?.e}</span><span style={{fontSize:13,color:"#6B6A80"}}>{p.name}</span></div>)}</div></div><div style={{marginTop:36}}><div className="spinner"/></div><p style={{color:TK.grey,fontSize:14,marginTop:12}}>Waiting for the host…</p></div></Wrap>);
 
-  if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}>{isPoll(question)&&<span style={{fontSize:12,fontWeight:700,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.navy}}>📊 Poll</span>}<span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(question)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>{isPoll(question)?"Show Results →":"Reveal Answer"}</Btn></div></Wrap>);
+  if(phase==="question"&&role==="host")return(<Wrap w={800}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><Logo size={24}/><div style={{display:"flex",alignItems:"center",gap:14}}>{isPoll(question)&&<span style={{fontSize:12,fontWeight:700,color:"#fff",padding:"3px 10px",borderRadius:6,background:TK.navy}}>📊 Poll</span>}<span style={{fontSize:12,fontWeight:600,color:TK.navy,padding:"3px 10px",borderRadius:6,background:TK.orange}}>{question.cat}</span><span style={{fontSize:14,color:TK.grey}}>Q{qi+1}/{Q.length}</span></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><span style={{fontSize:12,color:TK.grey}}>Question {qi+1}</span><span style={{fontSize:28,fontWeight:800,color:tl<=5?TK.bad:TK.white,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(question)}/><div style={{display:"flex",gap:20,marginTop:20,alignItems:"stretch"}}><div style={{flex:1,padding:"28px",borderRadius:16,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",display:"flex",alignItems:"center"}}><h2 style={{fontSize:26,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif"}}>{question.q}</h2></div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,justifyContent:"center"}}><QImg qi={qi} q={question} size={130}/><LiveCounter answered={nAnswers} total={nPlayers}/></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>{question.o.map((o,i)=><div key={i} style={{padding:"20px 18px",borderRadius:14,background:`${colors[i]}12`,border:`1.5px solid ${colors[i]}33`,display:"flex",alignItems:"center",gap:12}}><span style={{width:36,height:36,borderRadius:10,background:colors[i],color:TK.navy,fontWeight:800,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{L[i]}</span><span style={{fontSize:16,color:TK.navy,lineHeight:1.4}}>{o}</span></div>)}</div><div style={{textAlign:"center",marginTop:24}}><Btn onClick={hostReveal}>{isPoll(question)?"Show Results →":"Reveal Answer"}</Btn></div></Wrap>);
 
   if(phase==="question"&&role==="player"){const gqi=gState?.currentQ??0,pq=Q[gqi];return(<Wrap w={420}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600,color:TK.navy}}>Q{gqi+1}/{Q.length}</span><span style={{fontSize:24,fontWeight:800,color:tl<=5?TK.bad:TK.navy,fontVariantNumeric:"tabular-nums"}}>{tl}</span></div><TBar tl={tl} mx={qTime(pq)}/><p style={{fontSize:11,color:TK.grey,textAlign:"center",marginTop:8}}>{isPoll(pq)?"🗳️ Cast your vote — every answer counts":"⚡ Faster correct answers score more points"}</p><div style={{padding:"16px",borderRadius:12,background:"rgba(27,20,100,.03)",border:"1px solid rgba(27,20,100,.08)",marginTop:10,marginBottom:16}}><h2 style={{fontSize:17,fontWeight:400,lineHeight:1.45,margin:0,fontFamily:"Georgia,serif",color:TK.navy}}>{pq.q}</h2></div><PlayerOptions options={pq.o} colors={colors} L={L} onPick={(i)=>playerSelect(i)} picked={myPick} disabled={sent||tl<=0}/>{myPick!==null&&!sent&&tl>0&&<div style={{marginTop:16,textAlign:"center"}}><Btn onClick={playerConfirm}>{isPoll(pq)?"Submit Vote":"Confirm Answer"}</Btn></div>}{sent?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:"rgba(27,20,100,.04)",border:"1px solid rgba(27,20,100,.08)"}}><span style={{fontSize:24}}>✓</span><p style={{fontSize:14,color:TK.grey,margin:"6px 0 0"}}>{isPoll(pq)?"Vote locked in — waiting for results":"Locked in — waiting for reveal"}</p></div>:tl<=0?<div style={{textAlign:"center",marginTop:20,padding:"14px",borderRadius:12,background:TK.badBg,border:`1px solid ${TK.bad}33`}}><span style={{fontSize:24}}>⏱</span><p style={{fontSize:14,color:TK.bad,fontWeight:600,margin:"6px 0 0"}}>Time's up!</p></div>:null}</Wrap>)}
 
@@ -975,7 +1016,7 @@ function App(){
       {/* RIGHT: image + explanation/insight + source — slides in */}
       <div style={{flex:"1 1 42%",minWidth:0}}>
         <div className="slide-r sr1" style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
-          <QImg qi={qi} size={80}/>
+          <QImg qi={qi} q={question} size={80}/>
           <div>
             <div style={{fontSize:12,fontWeight:600,color:TK.orange,textTransform:"uppercase",letterSpacing:".1em"}}>{question.cat}</div>
             <div style={{fontSize:13,color:TK.grey,marginTop:2}}>Question {qi+1} of {Q.length}</div>
@@ -1011,6 +1052,8 @@ function App(){
   if(phase==="closing"&&role==="host")return(<Wrap w={640}><div key={closingStep} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===closingStep?24:8,height:8,borderRadius:4,background:i<=closingStep?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div><div style={{fontSize:12,fontWeight:600,color:TK.grey,textTransform:"uppercase",letterSpacing:".1em",marginTop:16}}>Message {closingStep+1} of {CLOSING_MSGS.length}</div>{CLOSING_MSGS[closingStep].title&&<h2 style={{fontSize:30,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:16,lineHeight:1.3}}>{CLOSING_MSGS[closingStep].title}</h2>}<p style={CLOSING_MSGS[closingStep].title?{fontSize:16,color:"#5A596E",lineHeight:1.7,marginTop:18,maxWidth:520,marginLeft:"auto",marginRight:"auto"}:{fontSize:26,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,lineHeight:1.5,marginTop:22,maxWidth:520,marginLeft:"auto",marginRight:"auto"}}>{CLOSING_MSGS[closingStep].body}</p><div style={{marginTop:36}}><Btn onClick={hostClosingNext}>{closingStep>=CLOSING_MSGS.length-1?"See Final Results →":"Next →"}</Btn></div></div></Wrap>);
 
   if(phase==="closing"&&role==="player"){const step=gState?.msgStep??0;return(<Wrap w={480}><div key={step} className="fi" style={{textAlign:"center"}}><Logo size={24}/><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:28}}>{CLOSING_MSGS.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:4,background:i<=step?TK.orange:"rgba(27,20,100,.12)",transition:"all .3s ease"}}/>)}</div>{CLOSING_MSGS[step].title&&<h2 style={{fontSize:24,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,marginTop:20,lineHeight:1.3}}>{CLOSING_MSGS[step].title}</h2>}<p style={CLOSING_MSGS[step].title?{fontSize:15,color:"#5A596E",lineHeight:1.7,marginTop:14}:{fontSize:20,fontWeight:400,fontFamily:"Georgia,serif",color:TK.navy,lineHeight:1.5,marginTop:20}}>{CLOSING_MSGS[step].body}</p></div></Wrap>)}
+
+  if(phase==="final"&&Q.every(isPoll))return(<Wrap w={480}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>✅</div><h2 style={{fontSize:28,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12,color:TK.navy}}>Thank you for participating</h2><p style={{fontSize:14,color:TK.grey,marginTop:10,maxWidth:380,marginLeft:"auto",marginRight:"auto",lineHeight:1.6}}>This poll doesn't score or rank anyone — it's just a snapshot of the room's answers.</p>{role==="host"&&<div style={{marginTop:32}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</div></Wrap>);
 
   if(phase==="final"){const sorted=Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(b.score||0)-(a.score||0));const w=sorted[0];const me=role==="player"?sorted.find(p=>p.id===pid):null;const mr=me?sorted.indexOf(me)+1:0;return(<Wrap w={560}><div style={{textAlign:"center"}}><Logo size={28}/><div style={{fontSize:48,marginTop:32}}>🏆</div><h2 style={{fontSize:32,fontWeight:300,fontFamily:"Georgia,serif",marginTop:12}}>{role==="player"&&mr===1?"You won!":role==="player"?`#${mr}`:"Final Results"}</h2>{w&&<div style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:10,padding:"12px 24px",borderRadius:14,background:"rgba(255,102,51,.1)",border:"1px solid rgba(255,102,51,.2)"}}><Av i={w.avatar} size={44}/><div style={{textAlign:"left"}}><div style={{fontSize:18,fontWeight:600,color:TK.orange}}>{w.name}</div><div style={{fontSize:14,color:TK.grey}}>{w.score} pts</div></div></div>}</div><div style={{marginTop:28}}><LBoard players={players} showD={false} myId={role==="player"?pid:null}/></div>{role==="host"&&<div style={{textAlign:"center",marginTop:28}}><Btn outline onClick={()=>{fbDel(`quiz/${code}`);cleanup();setPhase("choose");setRole(null);setPlayers({});setAnswers({})}}>End Session</Btn></div>}</Wrap>)}
 
