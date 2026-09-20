@@ -1,6 +1,6 @@
-# AI Quiz
+# Quiz
 
-Interactive multiplayer quiz for seminars: **AI & The Changing World.**
+Interactive multiplayer quiz for seminars and events.
 
 20 questions across 2 sections: Geopolitics (7) and Market Knowledge (13). Add your own questions via the admin panel (`/?admin`) — including an "Internal" category for anything specific to your organization.
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<title>AI Quiz</title>
+<title>Quiz</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23FF6633'/><text x='16' y='23' text-anchor='middle' font-size='20' font-weight='800' fill='%231B1464' font-family='Georgia'>Q</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -171,7 +171,7 @@ function useQuizzes(){
       fbGet("questions").then(legacy=>{
         const lkeys=legacy?Object.keys(legacy):[];
         const qArr=lkeys.length>0?(Array.isArray(legacy)?legacy:lkeys.sort((a,b)=>+a-+b).map(k=>legacy[k])):DEFAULT_Q;
-        fbSet("quizzes/default",{name:"AI Quiz 2026",questions:Object.fromEntries(qArr.map((q,i)=>[i,q]))});
+        fbSet("quizzes/default",{name:"Quiz 2026",questions:Object.fromEntries(qArr.map((q,i)=>[i,q]))});
       });
     }
   }),[]);
@@ -192,7 +192,7 @@ function BrandBg({children,top}){
   </div>
 }
 
-function Logo({size=28}){return <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:size,height:size,borderRadius:4,background:`linear-gradient(135deg,${TK.orange},${TK.orangeD})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.4,fontWeight:800,color:TK.navy,fontFamily:"Georgia,serif"}}>AI</div><span style={{fontSize:size*.45,fontWeight:600,letterSpacing:".1em",textTransform:"uppercase",color:TK.orange}}>Quiz</span></div>}
+function Logo({size=28}){return <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:size,height:size,borderRadius:4,background:`linear-gradient(135deg,${TK.orange},${TK.orangeD})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.4,fontWeight:800,color:TK.navy,fontFamily:"Georgia,serif"}}>Q</div><span style={{fontSize:size*.45,fontWeight:600,letterSpacing:".1em",textTransform:"uppercase",color:TK.orange}}>Quiz</span></div>}
 function Av({i,size=48}){const a=AVATARS[i]||AVATARS[0];return <div style={{width:size,height:size,borderRadius:size*.3,background:a.bg,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 2px 12px ${a.bg}44`}}><span style={{fontSize:size*.6,lineHeight:1}}>{a.e}</span></div>}
 function Btn({children,onClick,disabled,outline}){return <button onClick={onClick} disabled={disabled} style={{padding:"14px 44px",borderRadius:10,fontWeight:700,fontSize:16,border:outline?`1.5px solid ${TK.orange}`:"none",cursor:disabled?"default":"pointer",background:outline?"transparent":`linear-gradient(135deg,${TK.orange},${TK.orangeD})`,color:outline?TK.orange:TK.navy,opacity:disabled?.4:1,boxShadow:outline?"none":"0 4px 20px rgba(255,102,51,.25)"}}>{children}</button>}
 function Wrap({children,w=640}){return <div style={{minHeight:"100vh",background:"#FAF6F1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}}><div style={{width:"100%",maxWidth:w}}>{children}</div></div>}
@@ -937,7 +937,7 @@ function App(){
     <BrandBg><div style={{maxWidth:560,margin:"0 auto",textAlign:"center"}}>
       <Logo size={40}/>
       <div style={{marginTop:64}}>
-        <h1 style={{fontSize:52,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase",letterSpacing:".02em"}}>AI Quiz</h1>
+        <h1 style={{fontSize:52,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase",letterSpacing:".02em"}}>Quiz</h1>
         <p style={{fontSize:14,fontWeight:600,color:"rgba(27,20,100,.35)",marginTop:12,letterSpacing:".1em",textTransform:"uppercase"}}>Host Dashboard</p>
       </div>
       <div style={{marginTop:40,textAlign:"left",maxWidth:400,margin:"40px auto 0"}}>
@@ -972,7 +972,7 @@ function App(){
     <BrandBg top><div style={{maxWidth:420,margin:"0 auto",textAlign:"center"}}>
       <Logo size={30}/>
       <div style={{marginTop:20}}>
-        <h1 style={{fontSize:32,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase"}}>AI Quiz</h1>
+        <h1 style={{fontSize:32,fontWeight:800,lineHeight:1.1,fontFamily:"Georgia,serif",color:TK.orange,textTransform:"uppercase"}}>Quiz</h1>
         <p style={{fontSize:14,color:"rgba(27,20,100,.4)",marginTop:6}}>Enter the session code to join</p>
       </div>
       <div style={{marginTop:18,textAlign:"left"}}>
