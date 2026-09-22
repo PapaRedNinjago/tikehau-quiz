@@ -140,6 +140,16 @@ const CLOSING_MSGS=[
 function genCode(){return String(1000+Math.floor(Math.random()*9000))}
 function genId(){return Math.random().toString(36).slice(2,8)}
 
+// A player's identity otherwise lives only in React state, which a phone's browser
+// can (and does) discard after the screen locks for a while, forcing a full reload.
+// Persisting it lets a reload silently re-attach to the same session under the same
+// pid, instead of the player finding their own still-present entry has "taken" their
+// name and getting locked out.
+const PLAYER_KEY="quizPlayerSession";
+function savePlayerSession(s){try{localStorage.setItem(PLAYER_KEY,JSON.stringify(s))}catch{}}
+function loadPlayerSession(){try{return JSON.parse(localStorage.getItem(PLAYER_KEY))}catch{return null}}
+function clearPlayerSession(){try{localStorage.removeItem(PLAYER_KEY)}catch{}}
+
 // ── Firebase helpers ──
 function fbSet(path,val){return db.ref(path).set(val)}
 function fbGet(path){return db.ref(path).once("value").then(s=>s.val())}
@@ -763,12 +773,13 @@ function App(){
 
   if(DISABLED)return <BrandBg><div style={{maxWidth:400,margin:"0 auto",textAlign:"center"}}><Logo size={40}/><h1 style={{fontSize:36,fontWeight:800,fontFamily:"Georgia,serif",marginTop:48,color:TK.orange,textTransform:"uppercase"}}>Coming Soon</h1><p style={{fontSize:15,color:"rgba(27,20,100,.45)",marginTop:14}}>The quiz will be activated during the seminar.</p><div style={{width:48,height:2,borderRadius:1,background:TK.orange,marginTop:32,opacity:.4,margin:"32px auto 0"}}/></div></BrandBg>;
 
-  const [role,setRole]=useState(null);
-  const [code,setCode]=useState("");
-  const [pid]=useState(genId);
-  const [name,setName]=useState("");
-  const [avIdx,setAvIdx]=useState(0);
-  const [phase,setPhase]=useState("choose");
+  const savedPlayer=useRef(urlMode==="player"?loadPlayerSession():null).current;
+  const [role,setRole]=useState(savedPlayer?"player":null);
+  const [code,setCode]=useState(savedPlayer?savedPlayer.code:"");
+  const [pid]=useState(()=>savedPlayer?savedPlayer.pid:genId());
+  const [name,setName]=useState(savedPlayer?savedPlayer.name:"");
+  const [avIdx,setAvIdx]=useState(savedPlayer?savedPlayer.avIdx:0);
+  const [phase,setPhase]=useState(savedPlayer?"lobby":"choose");
   const [gState,setGState]=useState(null);
   const [players,setPlayers]=useState({});
   const [answers,setAnswers]=useState({});
@@ -788,6 +799,27 @@ function App(){
   const stopT=()=>{if(tRef.current){clearInterval(tRef.current);tRef.current=null}};
   const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
   useEffect(()=>()=>cleanup(),[]);
+
+  // Re-validate a resumed player session against Firebase and re-attach the same
+  // listeners playerJoin() would set up. Uses the persisted pid, so our own
+  // still-present entry is recognized as us resuming, not a name collision.
+  useEffect(()=>{
+    if(!savedPlayer)return;
+    (async()=>{
+      const st=await fbGet(`quiz/${savedPlayer.code}/state`);
+      if(!st){clearPlayerSession();setRole(null);setCode("");setPhase("choose");return}
+      let p=await fbGet(`quiz/${savedPlayer.code}/players`)||{};
+      if(!p[pid]){
+        const me={name:savedPlayer.name,avatar:savedPlayer.avIdx,score:0,delta:0};
+        await fbSet(`quiz/${savedPlayer.code}/players/${pid}`,me);
+        p={...p,[pid]:me};
+      }
+      setPlayers(p);
+      setGState(st);
+      unsubs.current.push(fbOn(`quiz/${savedPlayer.code}/state`,s=>{if(s)setGState(s)}));
+      unsubs.current.push(fbOn(`quiz/${savedPlayer.code}/players`,pl=>{if(pl)setPlayers(pl)}));
+    })();
+  },[]);
 
   // Default the host's quiz picker to the first available quiz once the catalog loads.
   useEffect(()=>{
@@ -888,6 +920,7 @@ function App(){
     const me={name:name.trim(),avatar:avIdx,score:0,delta:0};
     await fbSet(`quiz/${joinCode}/players/${pid}`,me);
     setCode(joinCode);setRole("player");setPlayers({...p,[pid]:me});setPhase("lobby");
+    savePlayerSession({code:joinCode,pid,name:me.name,avIdx});
     unsubs.current.push(fbOn(`quiz/${joinCode}/state`,s=>{if(s)setGState(s)}));
     unsubs.current.push(fbOn(`quiz/${joinCode}/players`,pl=>{if(pl)setPlayers(pl)}));
   };
@@ -911,10 +944,11 @@ function App(){
         setTl(qTime(myQuiz&&myQuiz.questions[gState.currentQ]));
         stopT();tRef.current=setInterval(()=>setTl(t=>{if(t<=1){clearInterval(tRef.current);return 0}return t-1}),1000);
       }
+      if(gp==="lobby")setPhase("lobby");
       if(gp==="reveal"){stopT();setQi(gState.currentQ);setPhase("reveal");fbGet(`quiz/${code}/ans_${gState.currentQ}`).then(a=>setAnswers(a||{}))}
       if(gp==="leaderboard")setPhase("leaderboard");
       if(gp==="closing")setPhase("closing");
-      if(gp==="final")setPhase("final");
+      if(gp==="final"){setPhase("final");clearPlayerSession()}
     }
   },[gState,role]);
 
