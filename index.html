@@ -800,6 +800,17 @@ function App(){
   const cleanup=()=>{stopT();unsubs.current.forEach(u=>u());unsubs.current=[]};
   useEffect(()=>()=>cleanup(),[]);
 
+  // The host ending a session (or the code simply no longer existing) deletes
+  // `quiz/{code}`, which fires this listener with s=null. Without handling that,
+  // a player's tab just freezes on whatever phase it last saw — a "ghost session"
+  // with no way back in, since the code they joined with is now gone for good.
+  const handlePlayerState=(s)=>{
+    if(s){setGState(s);return}
+    clearPlayerSession();cleanup();
+    setRole(null);setCode("");setPhase("choose");setGState(null);
+    setErr("This session has ended — please rejoin.");
+  };
+
   // Re-validate a resumed player session against Firebase and re-attach the same
   // listeners playerJoin() would set up. Uses the persisted pid, so our own
   // still-present entry is recognized as us resuming, not a name collision.
@@ -816,7 +827,7 @@ function App(){
       }
       setPlayers(p);
       setGState(st);
-      unsubs.current.push(fbOn(`quiz/${savedPlayer.code}/state`,s=>{if(s)setGState(s)}));
+      unsubs.current.push(fbOn(`quiz/${savedPlayer.code}/state`,handlePlayerState));
       unsubs.current.push(fbOn(`quiz/${savedPlayer.code}/players`,pl=>{if(pl)setPlayers(pl)}));
     })();
   },[]);
@@ -921,7 +932,7 @@ function App(){
     await fbSet(`quiz/${joinCode}/players/${pid}`,me);
     setCode(joinCode);setRole("player");setPlayers({...p,[pid]:me});setPhase("lobby");
     savePlayerSession({code:joinCode,pid,name:me.name,avIdx});
-    unsubs.current.push(fbOn(`quiz/${joinCode}/state`,s=>{if(s)setGState(s)}));
+    unsubs.current.push(fbOn(`quiz/${joinCode}/state`,handlePlayerState));
     unsubs.current.push(fbOn(`quiz/${joinCode}/players`,pl=>{if(pl)setPlayers(pl)}));
   };
   const playerSelect=(pick)=>{if(sent||tl<=0)return;setMyPick(pick)};
